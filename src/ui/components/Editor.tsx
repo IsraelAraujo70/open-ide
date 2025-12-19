@@ -6,8 +6,6 @@
  * - Text selection
  * - Undo/redo
  * - Mouse support
- * 
- * Uses line-number component for automatic line number sync
  */
 
 import type { BufferState, Theme } from "../../domain/types.ts"
@@ -52,18 +50,14 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       </box>
     )
   }
-  
-  // Use line-number component which automatically syncs with textarea
+
+  // TODO: Line numbers disabled due to OpenTUI insertBefore bug
+  // See: https://github.com/sst/opentui/issues/432
+  // When fixed, restore <line-number target={...} /> component
   return (
-    <line-number
-      width={width}
-      height={height}
-      fg={colors.comment}
-      bg={colors.background}
-      minWidth={4}
-      paddingRight={1}
-    >
+    <box width={width} height={height} flexDirection="row">
       <textarea
+        key={buffer.id}
         flexGrow={1}
         height={height}
         initialValue={buffer.content}
@@ -74,6 +68,6 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
         selectionBg={colors.selection}
         wrapMode="none"
       />
-    </line-number>
+    </box>
   )
 }

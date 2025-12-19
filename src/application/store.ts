@@ -124,6 +124,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "OPEN_FILE": {
       const { path } = action
+      const initialContent = action.content ?? ""
       
       // Check if already open
       for (const [id, buffer] of state.buffers) {
@@ -154,7 +155,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const newBuffer: BufferState = {
         id: newBufferId,
         filePath: path,
-        content: "", // Will be loaded async
+        content: initialContent,
         isDirty: false,
         language: detectLanguage(path),
         cursorPosition: { line: 0, column: 0, offset: 0 },

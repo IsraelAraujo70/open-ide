@@ -2,7 +2,6 @@
  * Explorer Component - File tree sidebar
  * 
  * Features:
- * - Nerd Font icons for files and folders
  * - Tree lines (├──, └──) for hierarchy visualization
  * - Color coding by file type
  * - Click to expand/collapse folders
@@ -25,9 +24,57 @@ interface ExplorerProps {
   focused: boolean
 }
 
+// Flat item for rendering
+interface FlatItem {
+  tree: DirectoryTree
+  depth: number
+  isLast: boolean
+  parentPrefixes: boolean[] // true = has more siblings, false = last child
+}
+
+// Flatten the tree for easier rendering
+function flattenTree(tree: DirectoryTree, depth = 0, isLast = true, parentPrefixes: boolean[] = []): FlatItem[] {
+  const items: FlatItem[] = []
+  
+  // Add current item (skip root at depth 0)
+  if (depth > 0) {
+    items.push({ tree, depth, isLast, parentPrefixes })
+  }
+  
+  // Add children if expanded
+  if (tree.entry.type === "directory" && tree.isExpanded) {
+    const children = tree.children
+    children.forEach((child, index) => {
+      const childIsLast = index === children.length - 1
+      const newPrefixes = depth === 0 ? [] : [...parentPrefixes, !isLast]
+      items.push(...flattenTree(child, depth + 1, childIsLast, newPrefixes))
+    })
+  }
+  
+  return items
+}
+
+// Build prefix string for tree lines
+function buildPrefix(item: FlatItem): string {
+  let prefix = ""
+  
+  // Add continuation lines for ancestors
+  for (const hasMoreSiblings of item.parentPrefixes) {
+    prefix += hasMoreSiblings ? "│   " : "    "
+  }
+  
+  // Add branch for current item
+  prefix += item.isLast ? "└── " : "├── "
+  
+  return prefix
+}
+
 export function Explorer({ width, height, directoryTree, rootPath, theme, focused }: ExplorerProps) {
   const { colors } = theme
   const borderColor = focused ? colors.primary : colors.border
+  
+  // Flatten tree for rendering
+  const flatItems = directoryTree ? flattenTree(directoryTree) : []
   
   return (
     <box
@@ -49,11 +96,34 @@ export function Explorer({ width, height, directoryTree, rootPath, theme, focuse
       {/* File Tree */}
       <scrollbox flexGrow={1} focused={focused}>
         {directoryTree ? (
-          <TreeView 
-            tree={directoryTree} 
-            theme={theme}
-            isRoot={true}
-          />
+          <box flexDirection="column">
+            {/* Root folder */}
+            <TreeItem
+              path={directoryTree.entry.path}
+              name={directoryTree.entry.name}
+              isDirectory={true}
+              isExpanded={directoryTree.isExpanded}
+              hasChildren={directoryTree.children.length > 0}
+              prefix=""
+              isRoot={true}
+              theme={theme}
+            />
+            
+            {/* Flat items */}
+            {flatItems.map((item) => (
+              <TreeItem
+                key={item.tree.entry.path}
+                path={item.tree.entry.path}
+                name={item.tree.entry.name}
+                isDirectory={item.tree.entry.type === "directory"}
+                isExpanded={item.tree.isExpanded}
+                hasChildren={item.tree.children.length > 0}
+                prefix={buildPrefix(item)}
+                isRoot={false}
+                theme={theme}
+              />
+            ))}
+          </box>
         ) : rootPath ? (
           <text fg={colors.comment} paddingLeft={1}> Loading...</text>
         ) : (
@@ -64,53 +134,50 @@ export function Explorer({ width, height, directoryTree, rootPath, theme, focuse
   )
 }
 
-interface TreeViewProps {
-  tree: DirectoryTree
+interface TreeItemProps {
+  path: string
+  name: string
+  isDirectory: boolean
+  isExpanded: boolean
+  hasChildren: boolean
+  prefix: string
+  isRoot: boolean
   theme: Theme
-  isRoot?: boolean
-  prefix?: string
-  isLast?: boolean
 }
 
-function TreeView({ tree, theme, isRoot = false, prefix = "", isLast = true }: TreeViewProps) {
+function TreeItem({ path, name, isDirectory, isExpanded, hasChildren, prefix, isRoot, theme }: TreeItemProps) {
   const { colors } = theme
-  
-  const isDirectory = tree.entry.type === "directory"
-  const isExpanded = tree.isExpanded
-  
-  // Build the tree line prefix
-  let itemPrefix = ""
-  
-  if (!isRoot) {
-    itemPrefix = isLast ? "└── " : "├── "
-  }
   
   // Get icon and color
   let icon: string
   let iconColor: string
   
   if (isDirectory) {
-    icon = getFolderIcon(tree.entry.name, isExpanded)
+    icon = getFolderIcon(name, isExpanded)
     iconColor = folderColor
   } else {
-    const fileIcon = getFileIcon(tree.entry.name)
+    const fileIcon = getFileIcon(name)
     icon = fileIcon.icon
     iconColor = fileIcon.color
   }
   
+  const textColor = isDirectory ? folderColor : colors.foreground
+  
+  // IMPORTANT: Capture path in closure for click handler
+  const itemPath = path
+  
   const handleClick = async () => {
     if (isDirectory) {
       // Toggle directory expansion
-      store.dispatch({ type: "TOGGLE_DIRECTORY", path: tree.entry.path })
+      store.dispatch({ type: "TOGGLE_DIRECTORY", path: itemPath })
       
       // If expanding and no children loaded, load them
-      if (!isExpanded && tree.children.length === 0) {
+      if (!isExpanded && !hasChildren) {
         try {
-          const children = await fileSystem.listDirectory(tree.entry.path)
-          // Update the tree with new children
+          const children = await fileSystem.listDirectory(itemPath)
           store.dispatch({ 
             type: "LOAD_DIRECTORY_CHILDREN", 
-            path: tree.entry.path,
+            path: itemPath,
             children: children.map(entry => ({
               entry,
               children: [],
@@ -118,42 +185,30 @@ function TreeView({ tree, theme, isRoot = false, prefix = "", isLast = true }: T
             }))
           } as any)
         } catch (error) {
-          console.error("Failed to load directory:", error)
+          // Silently fail - directory might not be readable
         }
       }
     } else {
-      // Open file using command registry (this loads the content)
-      await commandRegistry.execute("file.open", { args: [tree.entry.path] })
+      // Open file using command registry
+      await commandRegistry.execute("file.open", { args: [itemPath] })
     }
   }
   
-  const textColor = isDirectory ? folderColor : colors.foreground
-  
-  // Calculate child prefix for nested items
-  const childPrefix = prefix + (isRoot ? "" : (isLast ? "    " : "│   "))
+  if (isRoot) {
+    // Root folder - special rendering
+    return (
+      <box flexDirection="row" onMouseDown={handleClick}>
+        <text fg={iconColor}>{icon} </text>
+        <text fg={textColor}>{name}</text>
+      </box>
+    )
+  }
   
   return (
-    <box flexDirection="column">
-      {/* Current item */}
-      <box flexDirection="row" onMouseDown={handleClick}>
-        <text fg={colors.border}>{prefix}{itemPrefix}</text>
-        <text fg={iconColor}>{icon} </text>
-        <text fg={textColor}>{tree.entry.name}</text>
-      </box>
-      
-      {/* Children (if directory and expanded) */}
-      {isDirectory && isExpanded && tree.children.map((child, index) => {
-        const isLastChild = index === tree.children.length - 1
-        return (
-          <TreeView
-            key={child.entry.path}
-            tree={child}
-            theme={theme}
-            prefix={childPrefix}
-            isLast={isLastChild}
-          />
-        )
-      })}
+    <box flexDirection="row" onMouseDown={handleClick}>
+      <text fg={colors.border}>{prefix}</text>
+      <text fg={iconColor}>{icon} </text>
+      <text fg={textColor}>{name}</text>
     </box>
   )
 }

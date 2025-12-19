@@ -153,19 +153,15 @@ commandRegistry.register({
       return
     }
 
-    store.dispatch({ type: "OPEN_FILE", path })
-    
-    // Load content async
-    const content = await fileSystem.readFile(path)
-    const state = store.getState()
-    
-    // Find the buffer we just created
-    for (const [id, buffer] of state.buffers) {
-      if (buffer.filePath === path && buffer.content === "") {
-        store.dispatch({ type: "SET_BUFFER_CONTENT", bufferId: id, content })
-        break
-      }
+    let content = ""
+    try {
+      content = await fileSystem.readFile(path)
+    } catch (error) {
+      console.error(`Failed to read file: ${path}`, error)
+      return
     }
+
+    store.dispatch({ type: "OPEN_FILE", path, content })
   },
 })
 

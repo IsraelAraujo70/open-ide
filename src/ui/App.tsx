@@ -5,16 +5,16 @@
 import { useEffect } from "react"
 import { useTerminalDimensions } from "@opentui/react"
 import { useStore } from "./hooks/useStore.ts"
-import { StatusBar } from "./components/StatusBar.tsx"
-import { TabBar } from "./components/TabBar.tsx"
-import { Explorer } from "./components/Explorer.tsx"
-import { Editor } from "./components/Editor.tsx"
-import { CommandLine } from "./components/CommandLine.tsx"
-import { Palette } from "./components/Palette.tsx"
-import { FilePicker } from "./components/FilePicker.tsx"
-import { ThemePicker } from "./components/ThemePicker.tsx"
+import { StatusBar } from "./components/StatusBar"
+import { TabBar } from "./components/TabBar"
+import { Explorer } from "./components/Explorer"
+import { Editor } from "./components/Editor"
+import { CommandLine } from "./components/CommandLine"
+import { Palette } from "./components/Palette"
+import { FilePicker } from "./components/FilePicker"
+import { ThemePicker } from "./components/ThemePicker"
 import { useKeybindings } from "./hooks/useKeybindings.ts"
-import { parseAndExecuteCommand } from "../application/commands.ts"
+import { commandRegistry, parseAndExecuteCommand } from "../application/commands.ts"
 import { fileSystem } from "../adapters/index.ts"
 
 export function App() {
@@ -151,10 +151,10 @@ export function App() {
           width={Math.min(60, width - 4)}
           height={Math.min(20, height - 4)}
           initialPath={state.workspace.rootPath || process.cwd()}
-          onSelect={(path: string) => {
-            dispatch({ type: "CLOSE_FILE_PICKER" })
-            dispatch({ type: "OPEN_FILE", path })
-          }}
+           onSelect={(path: string) => {
+             dispatch({ type: "CLOSE_FILE_PICKER" })
+             void commandRegistry.execute("file.open", { args: [path] })
+           }}
           onCancel={() => dispatch({ type: "CLOSE_FILE_PICKER" })}
         />
       )}

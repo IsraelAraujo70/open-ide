@@ -235,7 +235,7 @@ export interface PaletteItem {
 
 export type AppAction =
   // File operations
-  | { type: "OPEN_FILE"; path: string }
+  | { type: "OPEN_FILE"; path: string; content?: string }
   | { type: "SAVE_FILE"; bufferId: string }
   | { type: "CLOSE_TAB"; tabId: string }
   | { type: "NEW_FILE" }

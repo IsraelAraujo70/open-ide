@@ -9,7 +9,7 @@ import type {
   FileStat,
 } from "../ports/index.ts"
 import type { FileEntry, DirectoryTree } from "../domain/types.ts"
-import { watch } from "fs"
+import { watch, readdirSync, statSync } from "fs"
 import { join, basename } from "path"
 
 export class BunFileSystemAdapter implements FileSystemPort {
@@ -24,28 +24,39 @@ export class BunFileSystemAdapter implements FileSystemPort {
 
   async listDirectory(path: string): Promise<FileEntry[]> {
     const entries: FileEntry[] = []
-    const glob = new Bun.Glob("*")
     
-    for await (const name of glob.scan({ cwd: path, onlyFiles: false })) {
-      const fullPath = join(path, name)
-      let isDir = false
-      let size = 0
+    try {
+      const items = readdirSync(path, { withFileTypes: true })
       
-      try {
-        // Check if it's a directory by trying to list it
-        const stat = await this.stat(fullPath)
-        isDir = stat.isDirectory
-        size = stat.size
-      } catch {
-        // If stat fails, assume file
+      for (const item of items) {
+        // Skip hidden files and node_modules for performance
+        if (item.name.startsWith('.') && item.name !== '.gitignore' && item.name !== '.env') {
+          continue
+        }
+        
+        const fullPath = join(path, item.name)
+        const isDir = item.isDirectory()
+        
+        let size = 0
+        if (!isDir) {
+          try {
+            const stat = statSync(fullPath)
+            size = stat.size
+          } catch {
+            // Ignore stat errors
+          }
+        }
+        
+        entries.push({
+          name: item.name,
+          path: fullPath,
+          type: isDir ? "directory" : "file",
+          size: isDir ? undefined : size,
+        })
       }
-      
-      entries.push({
-        name,
-        path: fullPath,
-        type: isDir ? "directory" : "file",
-        size: isDir ? undefined : size,
-      })
+    } catch (e) {
+      // Directory not readable
+      return []
     }
     
     // Sort: directories first, then alphabetically
@@ -57,7 +68,7 @@ export class BunFileSystemAdapter implements FileSystemPort {
     })
   }
 
-  async buildTree(path: string, depth = 3): Promise<DirectoryTree> {
+  async buildTree(path: string, depth = 2): Promise<DirectoryTree> {
     const name = basename(path)
     const entry: FileEntry = {
       name,
@@ -73,6 +84,16 @@ export class BunFileSystemAdapter implements FileSystemPort {
     const entries = await this.listDirectory(path)
 
     for (const e of entries) {
+      // Skip node_modules for initial tree
+      if (e.name === "node_modules") {
+        children.push({
+          entry: e,
+          children: [],
+          isExpanded: false,
+        })
+        continue
+      }
+      
       if (e.type === "directory") {
         const subtree = await this.buildTree(e.path, depth - 1)
         children.push(subtree)
@@ -89,14 +110,18 @@ export class BunFileSystemAdapter implements FileSystemPort {
   }
 
   async exists(path: string): Promise<boolean> {
-    const file = Bun.file(path)
-    return await file.exists()
+    try {
+      statSync(path)
+      return true
+    } catch {
+      return false
+    }
   }
 
   async isDirectory(path: string): Promise<boolean> {
     try {
-      const stat = await this.stat(path)
-      return stat.isDirectory
+      const stat = statSync(path)
+      return stat.isDirectory()
     } catch {
       return false
     }
@@ -110,7 +135,6 @@ export class BunFileSystemAdapter implements FileSystemPort {
       let type: FileWatchEvent["type"] = "modify"
       
       if (eventType === "rename") {
-        // Could be create or delete - we'd need to check existence
         type = "rename"
       }
       
@@ -123,27 +147,14 @@ export class BunFileSystemAdapter implements FileSystemPort {
   }
 
   async stat(path: string): Promise<FileStat> {
-    const file = Bun.file(path)
-    
-    // Bun.file doesn't expose isDirectory directly, so we use a workaround
-    // Try to read the file - if it fails with EISDIR, it's a directory
     try {
-      const exists = await file.exists()
-      if (!exists) {
-        throw new Error(`ENOENT: ${path}`)
-      }
-      
-      // Check if directory by trying to list it
-      const proc = Bun.spawn(["test", "-d", path])
-      const exitCode = await proc.exited
-      const isDir = exitCode === 0
-      
+      const stat = statSync(path)
       return {
-        size: isDir ? 0 : file.size,
-        modifiedAt: new Date(file.lastModified),
-        createdAt: new Date(file.lastModified), // Bun doesn't expose createdAt
-        isDirectory: isDir,
-        isFile: !isDir,
+        size: stat.size,
+        modifiedAt: stat.mtime,
+        createdAt: stat.birthtime,
+        isDirectory: stat.isDirectory(),
+        isFile: stat.isFile(),
       }
     } catch (e) {
       throw e

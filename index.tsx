@@ -6,7 +6,7 @@
 
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
-import { App } from "./src/ui/App.tsx"
+import { App } from "./src/ui/App"
 
 async function main() {
   const renderer = await createCliRenderer({
