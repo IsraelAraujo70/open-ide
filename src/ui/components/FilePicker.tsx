@@ -16,39 +16,49 @@ interface FilePickerProps {
   onCancel: () => void
 }
 
-export function FilePicker({ theme, width, height, initialPath, onSelect, onCancel }: FilePickerProps) {
+export function FilePicker({
+  theme,
+  width,
+  height,
+  initialPath,
+  onSelect,
+  onCancel,
+}: FilePickerProps) {
   const { colors } = theme
   const [currentPath, setCurrentPath] = useState(initialPath)
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [filter, setFilter] = useState("")
   const [loading, setLoading] = useState(true)
-  
+
   // Load directory contents
   useEffect(() => {
     setLoading(true)
-    fileSystem.listDirectory(currentPath).then((items) => {
-      // Sort: directories first, then files, alphabetically
-      const sorted = items.sort((a, b) => {
-        if (a.type === b.type) return a.name.localeCompare(b.name)
-        return a.type === "directory" ? -1 : 1
+    fileSystem
+      .listDirectory(currentPath)
+      .then(items => {
+        // Sort: directories first, then files, alphabetically
+        const sorted = items.sort((a, b) => {
+          if (a.type === b.type) return a.name.localeCompare(b.name)
+          return a.type === "directory" ? -1 : 1
+        })
+        setEntries(sorted)
+        setSelectedIndex(0)
+        setLoading(false)
       })
-      setEntries(sorted)
-      setSelectedIndex(0)
-      setLoading(false)
-    }).catch(() => {
-      setEntries([])
-      setLoading(false)
-    })
+      .catch(() => {
+        setEntries([])
+        setLoading(false)
+      })
   }, [currentPath])
-  
+
   // Filter entries
   const filteredEntries = useMemo(() => {
     if (!filter) return entries
     const lowerFilter = filter.toLowerCase()
     return entries.filter(e => e.name.toLowerCase().includes(lowerFilter))
   }, [entries, filter])
-  
+
   const handleKeyDown = (key: KeyEvent) => {
     if (key.name === "escape") {
       onCancel()
@@ -72,11 +82,11 @@ export function FilePicker({ theme, width, height, initialPath, onSelect, onCanc
       setCurrentPath(parent)
     }
   }
-  
+
   // Center the picker
   const leftOffset = Math.floor((100 - width) / 2)
   const topOffset = 2
-  
+
   return (
     <box
       position="absolute"
@@ -95,12 +105,12 @@ export function FilePicker({ theme, width, height, initialPath, onSelect, onCanc
       <box height={1} paddingLeft={1} paddingRight={1}>
         <text fg={colors.primary}>Open File</text>
       </box>
-      
+
       {/* Current path */}
       <box height={1} paddingLeft={1} paddingRight={1}>
         <text fg={colors.comment}>{currentPath}</text>
       </box>
-      
+
       {/* Search/filter input */}
       <box height={1} paddingLeft={1} paddingRight={1}>
         <text fg={colors.primary}>{">"}</text>
@@ -119,18 +129,22 @@ export function FilePicker({ theme, width, height, initialPath, onSelect, onCanc
           onKeyDown={handleKeyDown}
         />
       </box>
-      
+
       {/* Divider */}
       <box height={1}>
         <text fg={colors.border}>{"─".repeat(width - 2)}</text>
       </box>
-      
+
       {/* File list */}
       <scrollbox flexGrow={1}>
         {loading ? (
-          <text fg={colors.comment} paddingLeft={1}>Loading...</text>
+          <text fg={colors.comment} paddingLeft={1}>
+            Loading...
+          </text>
         ) : filteredEntries.length === 0 ? (
-          <text fg={colors.comment} paddingLeft={1}>No files found</text>
+          <text fg={colors.comment} paddingLeft={1}>
+            No files found
+          </text>
         ) : (
           filteredEntries.slice(0, height - 6).map((entry, index) => (
             <FileEntryRow
@@ -150,7 +164,7 @@ export function FilePicker({ theme, width, height, initialPath, onSelect, onCanc
           ))
         )}
       </scrollbox>
-      
+
       {/* Help */}
       <box height={1} paddingLeft={1}>
         <text fg={colors.comment}>Enter: select | Backspace: parent | Esc: cancel</text>
@@ -171,16 +185,13 @@ function FileEntryRow({ entry, isSelected, theme, onSelect }: FileEntryRowProps)
   const bg = isSelected ? colors.selection : colors.background
   const fg = entry.type === "directory" ? colors.keyword : colors.foreground
   const icon = entry.type === "directory" ? "📁 " : "📄 "
-  
+
   return (
-    <box
-      height={1}
-      backgroundColor={bg}
-      paddingLeft={1}
-      paddingRight={1}
-      onMouseDown={onSelect}
-    >
-      <text fg={fg} bg={bg}>{icon}{entry.name}</text>
+    <box height={1} backgroundColor={bg} paddingLeft={1} paddingRight={1} onMouseDown={onSelect}>
+      <text fg={fg} bg={bg}>
+        {icon}
+        {entry.name}
+      </text>
     </box>
   )
 }

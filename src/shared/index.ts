@@ -2,16 +2,12 @@
  * Shared utilities and services
  */
 
-export { 
-  getTreeSitter, 
-  initTreeSitter, 
-  isTreeSitterReady, 
+export {
+  getTreeSitter,
+  initTreeSitter,
+  isTreeSitterReady,
   getFiletype,
-  destroyTreeSitter 
+  destroyTreeSitter,
 } from "./treeSitter.ts"
 
-export {
-  createSyntaxStyleFromTheme,
-  getSyntaxStyle,
-  clearStyleCache
-} from "./syntaxStyle.ts"
+export { createSyntaxStyleFromTheme, getSyntaxStyle, clearStyleCache } from "./syntaxStyle.ts"

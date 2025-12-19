@@ -1,6 +1,6 @@
 /**
  * Application State Store
- * 
+ *
  * Central state management using a simple reducer pattern.
  * The UI subscribes to state changes and re-renders accordingly.
  */
@@ -105,9 +105,7 @@ function updatePaneInLayout(
   }
   return {
     ...node,
-    children: node.children.map((child) =>
-      updatePaneInLayout(child, paneId, updater)
-    ),
+    children: node.children.map(child => updatePaneInLayout(child, paneId, updater)),
   }
 }
 
@@ -125,20 +123,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "OPEN_FILE": {
       const { path } = action
       const initialContent = action.content ?? ""
-      
+
       // Check if already open
       for (const [id, buffer] of state.buffers) {
         if (buffer.filePath === path) {
           // Just switch to existing tab
           const pane = getActivePane(state.layout)
           if (pane) {
-            const existingTab = pane.tabs.find((t) => t.bufferId === id)
+            const existingTab = pane.tabs.find(t => t.bufferId === id)
             if (existingTab) {
               const newLayout: PaneLayout = {
-                root: updatePaneInLayout(state.layout.root, pane.id, (p) => ({
+                root: updatePaneInLayout(state.layout.root, pane.id, p => ({
                   ...p,
                   activeTabId: existingTab.id,
-                  tabs: p.tabs.map((t) => ({
+                  tabs: p.tabs.map(t => ({
                     ...t,
                     isActive: t.id === existingTab.id,
                   })),
@@ -149,7 +147,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }
         }
       }
-      
+
       // Create new buffer (content will be loaded async)
       const newBufferId = generateBufferId()
       const newBuffer: BufferState = {
@@ -161,7 +159,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         cursorPosition: { line: 0, column: 0, offset: 0 },
         selection: null,
       }
-      
+
       const newTab: Tab = {
         id: generateTabId(),
         bufferId: newBufferId,
@@ -169,24 +167,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         isActive: true,
         isPinned: false,
       }
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(newBufferId, newBuffer)
-      
+
       const pane = getActivePane(state.layout)
       if (!pane) return state
-      
+
       const newLayout: PaneLayout = {
-        root: updatePaneInLayout(state.layout.root, pane.id, (p) => ({
+        root: updatePaneInLayout(state.layout.root, pane.id, p => ({
           ...p,
           activeTabId: newTab.id,
-          tabs: [
-            ...p.tabs.map((t) => ({ ...t, isActive: false })),
-            newTab,
-          ],
+          tabs: [...p.tabs.map(t => ({ ...t, isActive: false })), newTab],
         })),
       }
-      
+
       return {
         ...state,
         buffers: newBuffers,
@@ -198,32 +193,30 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SAVE_FILE": {
       const buffer = state.buffers.get(action.bufferId)
       if (!buffer) return state
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(action.bufferId, { ...buffer, isDirty: false })
-      
+
       return { ...state, buffers: newBuffers }
     }
 
     case "CLOSE_TAB": {
       const pane = getActivePane(state.layout)
       if (!pane) return state
-      
-      const tabIndex = pane.tabs.findIndex((t) => t.id === action.tabId)
+
+      const tabIndex = pane.tabs.findIndex(t => t.id === action.tabId)
       if (tabIndex === -1) return state
-      
+
       const closingTab = pane.tabs[tabIndex]!
-      const newTabs = pane.tabs.filter((t) => t.id !== action.tabId)
-      
+      const newTabs = pane.tabs.filter(t => t.id !== action.tabId)
+
       // Remove buffer if no other tabs reference it
       const newBuffers = new Map(state.buffers)
-      const isBufferUsedElsewhere = newTabs.some(
-        (t) => t.bufferId === closingTab.bufferId
-      )
+      const isBufferUsedElsewhere = newTabs.some(t => t.bufferId === closingTab.bufferId)
       if (!isBufferUsedElsewhere) {
         newBuffers.delete(closingTab.bufferId)
       }
-      
+
       // Determine new active tab
       let newActiveTabId: string | null = null
       if (newTabs.length > 0) {
@@ -235,18 +228,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           newActiveTabId = pane.activeTabId
         }
       }
-      
+
       const newLayout: PaneLayout = {
-        root: updatePaneInLayout(state.layout.root, pane.id, (p) => ({
+        root: updatePaneInLayout(state.layout.root, pane.id, p => ({
           ...p,
           activeTabId: newActiveTabId,
-          tabs: newTabs.map((t) => ({
+          tabs: newTabs.map(t => ({
             ...t,
             isActive: t.id === newActiveTabId,
           })),
         })),
       }
-      
+
       return { ...state, buffers: newBuffers, layout: newLayout }
     }
 
@@ -261,7 +254,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         cursorPosition: { line: 0, column: 0, offset: 0 },
         selection: null,
       }
-      
+
       const newTab: Tab = {
         id: generateTabId(),
         bufferId: newBufferId,
@@ -269,24 +262,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         isActive: true,
         isPinned: false,
       }
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(newBufferId, newBuffer)
-      
+
       const pane = getActivePane(state.layout)
       if (!pane) return state
-      
+
       const newLayout: PaneLayout = {
-        root: updatePaneInLayout(state.layout.root, pane.id, (p) => ({
+        root: updatePaneInLayout(state.layout.root, pane.id, p => ({
           ...p,
           activeTabId: newTab.id,
-          tabs: [
-            ...p.tabs.map((t) => ({ ...t, isActive: false })),
-            newTab,
-          ],
+          tabs: [...p.tabs.map(t => ({ ...t, isActive: false })), newTab],
         })),
       }
-      
+
       return {
         ...state,
         buffers: newBuffers,
@@ -298,40 +288,40 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_BUFFER_CONTENT": {
       const buffer = state.buffers.get(action.bufferId)
       if (!buffer) return state
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(action.bufferId, {
         ...buffer,
         content: action.content,
         isDirty: buffer.content !== action.content,
       })
-      
+
       return { ...state, buffers: newBuffers }
     }
 
     case "SET_CURSOR": {
       const buffer = state.buffers.get(action.bufferId)
       if (!buffer) return state
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(action.bufferId, {
         ...buffer,
         cursorPosition: action.position,
       })
-      
+
       return { ...state, buffers: newBuffers }
     }
 
     case "SET_SELECTION": {
       const buffer = state.buffers.get(action.bufferId)
       if (!buffer) return state
-      
+
       const newBuffers = new Map(state.buffers)
       newBuffers.set(action.bufferId, {
         ...buffer,
         selection: action.selection,
       })
-      
+
       return { ...state, buffers: newBuffers }
     }
 
@@ -342,41 +332,40 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SWITCH_TAB": {
       const pane = getActivePane(state.layout)
       if (!pane) return state
-      
+
       const newLayout: PaneLayout = {
-        root: updatePaneInLayout(state.layout.root, pane.id, (p) => ({
+        root: updatePaneInLayout(state.layout.root, pane.id, p => ({
           ...p,
           activeTabId: action.tabId,
-          tabs: p.tabs.map((t) => ({
+          tabs: p.tabs.map(t => ({
             ...t,
             isActive: t.id === action.tabId,
           })),
         })),
       }
-      
+
       return { ...state, layout: newLayout }
     }
 
     case "NEXT_TAB": {
       const pane = getActivePane(state.layout)
       if (!pane || pane.tabs.length === 0) return state
-      
-      const currentIndex = pane.tabs.findIndex((t) => t.isActive)
+
+      const currentIndex = pane.tabs.findIndex(t => t.isActive)
       const nextIndex = (currentIndex + 1) % pane.tabs.length
       const nextTab = pane.tabs[nextIndex]!
-      
+
       return appReducer(state, { type: "SWITCH_TAB", tabId: nextTab.id })
     }
 
     case "PREV_TAB": {
       const pane = getActivePane(state.layout)
       if (!pane || pane.tabs.length === 0) return state
-      
-      const currentIndex = pane.tabs.findIndex((t) => t.isActive)
-      const prevIndex =
-        currentIndex === 0 ? pane.tabs.length - 1 : currentIndex - 1
+
+      const currentIndex = pane.tabs.findIndex(t => t.isActive)
+      const prevIndex = currentIndex === 0 ? pane.tabs.length - 1 : currentIndex - 1
       const prevTab = pane.tabs[prevIndex]!
-      
+
       return appReducer(state, { type: "SWITCH_TAB", tabId: prevTab.id })
     }
 
@@ -436,15 +425,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case "SET_THEME": {
-      const theme = defaultThemes.find((t) => t.id === action.themeId)
+      const theme = defaultThemes.find(t => t.id === action.themeId)
       if (!theme) return state
       return { ...state, theme }
     }
 
     case "TOGGLE_THEME": {
-      const currentIndex = defaultThemes.findIndex(
-        (t) => t.id === state.theme.id
-      )
+      const currentIndex = defaultThemes.findIndex(t => t.id === state.theme.id)
       const nextIndex = (currentIndex + 1) % defaultThemes.length
       return { ...state, theme: defaultThemes[nextIndex]! }
     }
@@ -457,25 +444,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         cwd: state.workspace.rootPath || process.cwd(),
         isActive: true,
       }
-      
+
       const newTerminals = new Map(state.terminals)
       // Deactivate other terminals
       for (const [termId, term] of newTerminals) {
         newTerminals.set(termId, { ...term, isActive: false })
       }
       newTerminals.set(id, terminal)
-      
+
       return { ...state, terminals: newTerminals, focusTarget: "terminal" }
     }
 
     case "CLOSE_TERMINAL": {
       const newTerminals = new Map(state.terminals)
       newTerminals.delete(action.terminalId)
-      
+
       // If closing active terminal, activate another or go back to editor
       const wasActive = state.terminals.get(action.terminalId)?.isActive
       let newFocus: FocusTarget = state.focusTarget
-      
+
       if (wasActive) {
         if (newTerminals.size > 0) {
           const first = newTerminals.values().next().value
@@ -486,7 +473,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           newFocus = "editor"
         }
       }
-      
+
       return { ...state, terminals: newTerminals, focusTarget: newFocus }
     }
 
@@ -498,7 +485,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           isActive: termId === action.terminalId,
         })
       }
-      
+
       return { ...state, terminals: newTerminals, focusTarget: "terminal" }
     }
 
@@ -526,7 +513,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "TOGGLE_DIRECTORY": {
       if (!state.workspace.directoryTree) return state
-      
+
       const toggleInTree = (node: DirectoryTree): DirectoryTree => {
         if (node.entry.path === action.path) {
           return { ...node, isExpanded: !node.isExpanded }
@@ -536,7 +523,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           children: node.children.map(toggleInTree),
         }
       }
-      
+
       return {
         ...state,
         workspace: {
@@ -548,11 +535,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "LOAD_DIRECTORY_CHILDREN": {
       if (!state.workspace.directoryTree) return state
-      
+
       const loadChildrenInTree = (node: DirectoryTree): DirectoryTree => {
         if (node.entry.path === action.path) {
-          return { 
-            ...node, 
+          return {
+            ...node,
             children: action.children,
             isExpanded: true,
           }
@@ -562,7 +549,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           children: node.children.map(loadChildrenInTree),
         }
       }
-      
+
       return {
         ...state,
         workspace: {
@@ -619,7 +606,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
 function detectLanguage(path: string): string | null {
   const ext = path.split(".").pop()?.toLowerCase()
-  
+
   const languageMap: Record<string, string> = {
     ts: "typescript",
     tsx: "typescriptreact",
@@ -640,8 +627,8 @@ function detectLanguage(path: string): string | null {
     bash: "shellscript",
     zsh: "shellscript",
   }
-  
-  return ext ? languageMap[ext] ?? null : null
+
+  return ext ? (languageMap[ext] ?? null) : null
 }
 
 // ============================================================================

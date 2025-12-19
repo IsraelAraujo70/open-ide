@@ -13,9 +13,16 @@ interface CommandLineProps {
   onChange: (value: string) => void
 }
 
-export function CommandLine({ value, theme, width, onSubmit, onCancel, onChange }: CommandLineProps) {
+export function CommandLine({
+  value,
+  theme,
+  width,
+  onSubmit,
+  onCancel,
+  onChange,
+}: CommandLineProps) {
   const { colors } = theme
-  
+
   return (
     <box
       position="absolute"
@@ -41,7 +48,7 @@ export function CommandLine({ value, theme, width, onSubmit, onCancel, onChange 
         cursorColor={colors.primary}
         onInput={onChange}
         onSubmit={() => onSubmit(value)}
-        onKeyDown={(key) => {
+        onKeyDown={key => {
           if (key.name === "escape") {
             onCancel()
           }

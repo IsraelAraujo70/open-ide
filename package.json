@@ -5,11 +5,15 @@
   "private": true,
   "scripts": {
     "start": "bun run index.tsx",
-    "dev": "bun --watch index.tsx"
+    "dev": "bun --watch index.tsx",
+    "test": "bun test",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "^19.2.7"
+    "@types/react": "^19.2.7",
+    "prettier": "^3.6.2"
   },
   "peerDependencies": {
     "typescript": "^5"

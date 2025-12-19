@@ -1,6 +1,6 @@
 /**
  * TreeSitterClient singleton for syntax highlighting
- * 
+ *
  * Manages the Tree-sitter parser worker and provides
  * a single instance for the entire application.
  */
@@ -31,7 +31,7 @@ export async function initTreeSitter(): Promise<void> {
   if (initPromise) {
     return initPromise
   }
-  
+
   const ts = getTreeSitter()
   initPromise = ts.initialize()
   return initPromise
@@ -50,19 +50,19 @@ export function isTreeSitterReady(): boolean {
  */
 export function getFiletype(filePath: string): string | null {
   const ext = path.extname(filePath).toLowerCase()
-  
+
   const extMap: Record<string, string> = {
     ".ts": "typescript",
-    ".tsx": "typescript",  // TSX uses typescript parser
+    ".tsx": "typescript", // TSX uses typescript parser
     ".js": "javascript",
-    ".jsx": "javascript",  // JSX uses javascript parser
+    ".jsx": "javascript", // JSX uses javascript parser
     ".mjs": "javascript",
     ".cjs": "javascript",
     ".md": "markdown",
     ".markdown": "markdown",
     ".zig": "zig",
   }
-  
+
   return extMap[ext] ?? null
 }
 

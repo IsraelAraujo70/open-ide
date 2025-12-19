@@ -1,6 +1,6 @@
 /**
  * Command Registry
- * 
+ *
  * Registers and executes commands. Commands can be invoked from:
  * - Keybindings
  * - Command Line (:save, :open, etc.)
@@ -117,7 +117,7 @@ commandRegistry.register({
     const pane = getActivePane(state)
     if (!pane?.activeTabId) return
 
-    const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId)
+    const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
     if (!activeTab) return
 
     const buffer = state.buffers.get(activeTab.bufferId)
@@ -136,10 +136,10 @@ commandRegistry.register({
   id: "file.open",
   name: "Open File",
   category: "File",
-  execute: async (args) => {
+  execute: async args => {
     const argsArray = (args?.args as string[]) ?? []
     const path = argsArray[0]
-    
+
     if (!path) {
       // Open file picker when no path provided
       store.dispatch({ type: "OPEN_FILE_PICKER" })
@@ -221,10 +221,10 @@ commandRegistry.register({
   id: "theme.set",
   name: "Set Theme",
   category: "Theme",
-  execute: async (args) => {
+  execute: async args => {
     const argsArray = (args?.args as string[]) ?? []
     const themeName = argsArray[0]
-    
+
     if (themeName) {
       store.dispatch({ type: "SET_THEME", themeId: themeName })
       await settings.set("theme", themeName)
@@ -260,9 +260,7 @@ commandRegistry.register({
   category: "Terminal",
   execute: () => {
     const state = store.getState()
-    const activeTerminal = Array.from(state.terminals.values()).find(
-      (t) => t.isActive
-    )
+    const activeTerminal = Array.from(state.terminals.values()).find(t => t.isActive)
     if (activeTerminal) {
       store.dispatch({ type: "CLOSE_TERMINAL", terminalId: activeTerminal.id })
     }
@@ -405,7 +403,7 @@ commandRegistry.register({
     const pane = getActivePane(state)
     if (!pane?.activeTabId) return
 
-    const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId)
+    const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
     if (!activeTab) return
 
     const buffer = state.buffers.get(activeTab.bufferId)
@@ -451,7 +449,7 @@ commandRegistry.register({
     const pane = getActivePane(state)
     if (!pane?.activeTabId) return
 
-    const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId)
+    const activeTab = pane.tabs.find(t => t.id === pane.activeTabId)
     if (!activeTab) return
 
     const buffer = state.buffers.get(activeTab.bufferId)

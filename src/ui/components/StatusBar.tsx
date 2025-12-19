@@ -13,33 +13,30 @@ interface StatusBarProps {
 
 export function StatusBar({ theme, width, buffer, focusTarget }: StatusBarProps) {
   const { colors } = theme
-  
+
   // Build status segments
-  const fileName = buffer?.filePath 
-    ? buffer.filePath.split("/").pop() 
-    : buffer ? "Untitled" : "No file"
-  
+  const fileName = buffer?.filePath
+    ? buffer.filePath.split("/").pop()
+    : buffer
+      ? "Untitled"
+      : "No file"
+
   const modified = buffer?.isDirty ? " [+]" : ""
   const language = buffer?.language ?? "plaintext"
-  
-  const cursorInfo = buffer 
+
+  const cursorInfo = buffer
     ? `Ln ${buffer.cursorPosition.line + 1}, Col ${buffer.cursorPosition.column + 1}`
     : ""
-  
+
   const focusIndicator = getFocusIndicator(focusTarget)
-  
+
   // Calculate spacing
   const leftContent = ` ${fileName}${modified}`
   const rightContent = `${language} | ${cursorInfo} | ${focusIndicator} `
   const middleSpaces = Math.max(0, width - leftContent.length - rightContent.length)
-  
+
   return (
-    <box
-      height={1}
-      width={width}
-      backgroundColor={colors.primary}
-      flexDirection="row"
-    >
+    <box height={1} width={width} backgroundColor={colors.primary} flexDirection="row">
       <text fg={colors.background} bg={colors.primary}>
         {leftContent}
       </text>
@@ -55,11 +52,17 @@ export function StatusBar({ theme, width, buffer, focusTarget }: StatusBarProps)
 
 function getFocusIndicator(focus: FocusTarget): string {
   switch (focus) {
-    case "editor": return "EDIT"
-    case "explorer": return "EXPLORER"
-    case "terminal": return "TERM"
-    case "commandLine": return "CMD"
-    case "palette": return "PALETTE"
-    default: return ""
+    case "editor":
+      return "EDIT"
+    case "explorer":
+      return "EXPLORER"
+    case "terminal":
+      return "TERM"
+    case "commandLine":
+      return "CMD"
+    case "palette":
+      return "PALETTE"
+    default:
+      return ""
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Renderer Adapter
- * 
+ *
  * Holds reference to the CLI renderer for proper cleanup on exit.
  * The renderer manages terminal state (alternate screen, kitty keyboard, mouse).
  */

@@ -9,7 +9,7 @@ export class TerminalClipboardAdapter implements ClipboardPort {
   async readText(): Promise<string> {
     // Try xclip/xsel on Linux, pbpaste on macOS
     const platform = process.platform
-    
+
     try {
       if (platform === "darwin") {
         const proc = Bun.spawn(["pbpaste"])
@@ -30,17 +30,17 @@ export class TerminalClipboardAdapter implements ClipboardPort {
     } catch {
       // Clipboard not available
     }
-    
+
     return ""
   }
 
   async writeText(text: string): Promise<void> {
     const platform = process.platform
-    
+
     // First try OSC 52 escape sequence (works in modern terminals)
     const base64 = Buffer.from(text).toString("base64")
     process.stdout.write(`\x1b]52;c;${base64}\x07`)
-    
+
     // Also try system clipboard as fallback
     try {
       if (platform === "darwin") {

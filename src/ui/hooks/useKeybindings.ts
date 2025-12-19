@@ -23,22 +23,22 @@ const defaultKeybindings: KeybindingConfig[] = [
   { key: "n", ctrl: true, command: "file.new" },
   { key: "o", ctrl: true, command: "filePicker.open" },
   { key: "w", ctrl: true, command: "tab.close" },
-  
+
   // Navigation
   { key: "p", ctrl: true, command: "palette.open" },
   { key: "Tab", ctrl: true, command: "tab.next" },
   { key: "Tab", ctrl: true, shift: true, command: "tab.prev" },
-  
+
   // Edit
   { key: "c", ctrl: true, command: "clipboard.copy" },
   { key: "v", ctrl: true, command: "clipboard.paste" },
   { key: "x", ctrl: true, command: "clipboard.cut" },
   { key: "a", ctrl: true, command: "edit.selectAll" },
-  
+
   // Theme
   { key: "t", ctrl: true, shift: true, command: "theme.toggle" },
   { key: "k", ctrl: true, command: "themePicker.open" },
-  
+
   // Focus
   { key: "e", ctrl: true, shift: true, command: "focus.explorer" },
   { key: "`", ctrl: true, command: "terminal.open" },
@@ -47,7 +47,7 @@ const defaultKeybindings: KeybindingConfig[] = [
 export function useKeybindings() {
   useKeyboard((event: KeyEvent) => {
     const state = store.getState()
-    
+
     // Special handling for Escape
     if (event.name === "escape") {
       if (state.commandLine.isOpen) {
@@ -75,7 +75,11 @@ export function useKeybindings() {
     }
 
     // Handle : for command line (only when not focused on editor input)
-    if (event.sequence === ":" && state.focusTarget !== "commandLine" && state.focusTarget !== "palette") {
+    if (
+      event.sequence === ":" &&
+      state.focusTarget !== "commandLine" &&
+      state.focusTarget !== "palette"
+    ) {
       commandRegistry.execute("commandLine.open")
       return
     }

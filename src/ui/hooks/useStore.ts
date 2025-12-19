@@ -10,7 +10,7 @@ export function useStore(): [AppState, (action: AppAction) => void] {
   const [state, setState] = useState(store.getState())
 
   useEffect(() => {
-    const unsubscribe = store.subscribe((newState) => {
+    const unsubscribe = store.subscribe(newState => {
       setState(newState)
     })
     return unsubscribe
@@ -27,7 +27,7 @@ export function useStoreSelector<T>(selector: (state: AppState) => T): T {
   const [value, setValue] = useState(() => selector(store.getState()))
 
   useEffect(() => {
-    const unsubscribe = store.subscribe((state) => {
+    const unsubscribe = store.subscribe(state => {
       const newValue = selector(state)
       setValue(newValue)
     })

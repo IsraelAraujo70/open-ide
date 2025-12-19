@@ -1,6 +1,6 @@
 /**
  * Simple syntax highlighting for common languages
- * 
+ *
  * Uses regex-based tokenization to provide basic syntax highlighting
  * until Tree-sitter integration is available.
  */
@@ -8,7 +8,7 @@
 import type { ThemeColors } from "./types.ts"
 
 // Token types that map to theme colors
-export type TokenType = 
+export type TokenType =
   | "keyword"
   | "string"
   | "number"
@@ -22,37 +22,149 @@ export type TokenType =
 
 export interface Token {
   type: TokenType
-  start: number  // character offset in full text
-  end: number    // character offset in full text
+  start: number // character offset in full text
+  end: number // character offset in full text
   text: string
 }
 
 // Keywords for different languages
 const jsKeywords = new Set([
-  "async", "await", "break", "case", "catch", "class", "const", "continue",
-  "debugger", "default", "delete", "do", "else", "export", "extends", "false",
-  "finally", "for", "function", "if", "import", "in", "instanceof", "let",
-  "new", "null", "of", "return", "static", "super", "switch", "this", "throw",
-  "true", "try", "typeof", "undefined", "var", "void", "while", "with", "yield",
-  "from", "as", "implements", "interface", "package", "private", "protected",
-  "public", "abstract", "enum", "readonly", "declare", "type", "namespace",
-  "module", "keyof", "infer", "never", "unknown", "any", "is", "asserts",
+  "async",
+  "await",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "function",
+  "if",
+  "import",
+  "in",
+  "instanceof",
+  "let",
+  "new",
+  "null",
+  "of",
+  "return",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "undefined",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
+  "from",
+  "as",
+  "implements",
+  "interface",
+  "package",
+  "private",
+  "protected",
+  "public",
+  "abstract",
+  "enum",
+  "readonly",
+  "declare",
+  "type",
+  "namespace",
+  "module",
+  "keyof",
+  "infer",
+  "never",
+  "unknown",
+  "any",
+  "is",
+  "asserts",
 ])
 
 const tsTypes = new Set([
-  "string", "number", "boolean", "object", "symbol", "bigint", "void",
-  "null", "undefined", "never", "unknown", "any", "Array", "Object",
-  "String", "Number", "Boolean", "Function", "Promise", "Map", "Set",
-  "Record", "Partial", "Required", "Readonly", "Pick", "Omit", "Exclude",
-  "Extract", "NonNullable", "ReturnType", "Parameters", "InstanceType",
+  "string",
+  "number",
+  "boolean",
+  "object",
+  "symbol",
+  "bigint",
+  "void",
+  "null",
+  "undefined",
+  "never",
+  "unknown",
+  "any",
+  "Array",
+  "Object",
+  "String",
+  "Number",
+  "Boolean",
+  "Function",
+  "Promise",
+  "Map",
+  "Set",
+  "Record",
+  "Partial",
+  "Required",
+  "Readonly",
+  "Pick",
+  "Omit",
+  "Exclude",
+  "Extract",
+  "NonNullable",
+  "ReturnType",
+  "Parameters",
+  "InstanceType",
 ])
 
 const operators = new Set([
-  "=", "+", "-", "*", "/", "%", "**", "++", "--",
-  "==", "===", "!=", "!==", "<", ">", "<=", ">=",
-  "&&", "||", "!", "??", "?.", "?:",
-  "&", "|", "^", "~", "<<", ">>", ">>>",
-  "=>", "...", "?",
+  "=",
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  "**",
+  "++",
+  "--",
+  "==",
+  "===",
+  "!=",
+  "!==",
+  "<",
+  ">",
+  "<=",
+  ">=",
+  "&&",
+  "||",
+  "!",
+  "??",
+  "?.",
+  "?:",
+  "&",
+  "|",
+  "^",
+  "~",
+  "<<",
+  ">>",
+  ">>>",
+  "=>",
+  "...",
+  "?",
 ])
 
 /**
@@ -61,17 +173,17 @@ const operators = new Set([
 export function tokenizeJS(code: string): Token[] {
   const tokens: Token[] = []
   let i = 0
-  
+
   while (i < code.length) {
     const char = code[i]!
     const remaining = code.slice(i)
-    
+
     // Skip whitespace
     if (/\s/.test(char)) {
       i++
       continue
     }
-    
+
     // Single-line comment
     if (remaining.startsWith("//")) {
       const end = code.indexOf("\n", i)
@@ -85,7 +197,7 @@ export function tokenizeJS(code: string): Token[] {
       i = actualEnd
       continue
     }
-    
+
     // Multi-line comment
     if (remaining.startsWith("/*")) {
       const end = code.indexOf("*/", i + 2)
@@ -99,7 +211,7 @@ export function tokenizeJS(code: string): Token[] {
       i = actualEnd
       continue
     }
-    
+
     // String (double quotes)
     if (char === '"') {
       let j = i + 1
@@ -117,7 +229,7 @@ export function tokenizeJS(code: string): Token[] {
       i = j
       continue
     }
-    
+
     // String (single quotes)
     if (char === "'") {
       let j = i + 1
@@ -135,7 +247,7 @@ export function tokenizeJS(code: string): Token[] {
       i = j
       continue
     }
-    
+
     // Template string
     if (char === "`") {
       let j = i + 1
@@ -153,7 +265,7 @@ export function tokenizeJS(code: string): Token[] {
       i = j
       continue
     }
-    
+
     // Number
     if (/[0-9]/.test(char) || (char === "." && /[0-9]/.test(code[i + 1] ?? ""))) {
       let j = i
@@ -175,13 +287,13 @@ export function tokenizeJS(code: string): Token[] {
       i = j
       continue
     }
-    
+
     // Identifier or keyword
     if (/[a-zA-Z_$]/.test(char)) {
       let j = i
       while (j < code.length && /[a-zA-Z0-9_$]/.test(code[j] ?? "")) j++
       const word = code.slice(i, j)
-      
+
       let type: TokenType = "variable"
       if (jsKeywords.has(word)) {
         type = "keyword"
@@ -190,7 +302,7 @@ export function tokenizeJS(code: string): Token[] {
       } else if (code[j] === "(") {
         type = "function"
       }
-      
+
       tokens.push({
         type,
         start: i,
@@ -200,11 +312,11 @@ export function tokenizeJS(code: string): Token[] {
       i = j
       continue
     }
-    
+
     // Multi-char operators
     const threeChar = code.slice(i, i + 3)
     const twoChar = code.slice(i, i + 2)
-    
+
     if (operators.has(threeChar)) {
       tokens.push({
         type: "operator",
@@ -215,7 +327,7 @@ export function tokenizeJS(code: string): Token[] {
       i += 3
       continue
     }
-    
+
     if (operators.has(twoChar)) {
       tokens.push({
         type: "operator",
@@ -226,7 +338,7 @@ export function tokenizeJS(code: string): Token[] {
       i += 2
       continue
     }
-    
+
     if (operators.has(char)) {
       tokens.push({
         type: "operator",
@@ -237,7 +349,7 @@ export function tokenizeJS(code: string): Token[] {
       i++
       continue
     }
-    
+
     // Punctuation
     if (/[{}()\[\];,.:@#]/.test(char)) {
       tokens.push({
@@ -249,11 +361,11 @@ export function tokenizeJS(code: string): Token[] {
       i++
       continue
     }
-    
+
     // Unknown - skip
     i++
   }
-  
+
   return tokens
 }
 
@@ -262,16 +374,26 @@ export function tokenizeJS(code: string): Token[] {
  */
 export function getTokenColor(type: TokenType, colors: ThemeColors): string {
   switch (type) {
-    case "keyword": return colors.keyword
-    case "string": return colors.string
-    case "number": return colors.number
-    case "comment": return colors.comment
-    case "function": return colors.function
-    case "variable": return colors.variable
-    case "type": return colors.type
-    case "operator": return colors.operator
-    case "punctuation": return colors.comment
-    default: return colors.foreground
+    case "keyword":
+      return colors.keyword
+    case "string":
+      return colors.string
+    case "number":
+      return colors.number
+    case "comment":
+      return colors.comment
+    case "function":
+      return colors.function
+    case "variable":
+      return colors.variable
+    case "type":
+      return colors.type
+    case "operator":
+      return colors.operator
+    case "punctuation":
+      return colors.comment
+    default:
+      return colors.foreground
   }
 }
 
@@ -280,9 +402,9 @@ export function getTokenColor(type: TokenType, colors: ThemeColors): string {
  */
 export function detectLanguageForHighlight(filePath: string | null): string | null {
   if (!filePath) return null
-  
+
   const ext = filePath.split(".").pop()?.toLowerCase()
-  
+
   switch (ext) {
     case "ts":
     case "tsx":

@@ -14,7 +14,7 @@ interface TabBarProps {
 
 export function TabBar({ tabs, activeTabId, theme, width }: TabBarProps) {
   const { colors } = theme
-  
+
   if (tabs.length === 0) {
     return (
       <box
@@ -29,7 +29,7 @@ export function TabBar({ tabs, activeTabId, theme, width }: TabBarProps) {
       </box>
     )
   }
-  
+
   return (
     <box
       height={1}
@@ -40,13 +40,8 @@ export function TabBar({ tabs, activeTabId, theme, width }: TabBarProps) {
       border={["bottom"]}
       borderColor={colors.border}
     >
-      {tabs.map((tab) => (
-        <TabItem
-          key={tab.id}
-          tab={tab}
-          isActive={tab.id === activeTabId}
-          theme={theme}
-        />
+      {tabs.map(tab => (
+        <TabItem key={tab.id} tab={tab} isActive={tab.id === activeTabId} theme={theme} />
       ))}
     </box>
   )
@@ -62,31 +57,26 @@ function TabItem({ tab, isActive, theme }: TabItemProps) {
   const { colors } = theme
   const bg = isActive ? colors.primary : colors.background
   const fg = isActive ? colors.background : colors.foreground
-  
+
   const label = tab.isPinned ? `📌 ${tab.label}` : tab.label
-  
+
   const handleClick = () => {
     store.dispatch({ type: "SWITCH_TAB", tabId: tab.id })
   }
-  
+
   const handleClose = () => {
     store.dispatch({ type: "CLOSE_TAB", tabId: tab.id })
   }
-  
+
   return (
-    <box
-      backgroundColor={bg}
-      paddingLeft={1}
-      paddingRight={1}
-      onMouseDown={handleClick}
-    >
+    <box backgroundColor={bg} paddingLeft={1} paddingRight={1} onMouseDown={handleClick}>
       <text fg={fg} bg={bg}>
         {` ${label} `}
       </text>
       <text
         fg={colors.error}
         bg={bg}
-        onMouseDown={(e) => {
+        onMouseDown={e => {
           e.stopPropagation()
           handleClose()
         }}

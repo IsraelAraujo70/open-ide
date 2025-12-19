@@ -239,54 +239,54 @@ export type AppAction =
   | { type: "SAVE_FILE"; bufferId: string }
   | { type: "CLOSE_TAB"; tabId: string }
   | { type: "NEW_FILE" }
-  
+
   // Editor
   | { type: "SET_BUFFER_CONTENT"; bufferId: string; content: string }
   | { type: "SET_CURSOR"; bufferId: string; position: CursorPosition }
   | { type: "SET_SELECTION"; bufferId: string; selection: Selection | null }
-  
+
   // Navigation
   | { type: "SET_FOCUS"; target: FocusTarget }
   | { type: "SWITCH_TAB"; tabId: string }
   | { type: "NEXT_TAB" }
   | { type: "PREV_TAB" }
-  
+
   // Command line
   | { type: "OPEN_COMMAND_LINE" }
   | { type: "CLOSE_COMMAND_LINE" }
   | { type: "SET_COMMAND_LINE_VALUE"; value: string }
   | { type: "EXECUTE_COMMAND"; command: string }
-  
+
   // Palette
   | { type: "OPEN_PALETTE" }
   | { type: "CLOSE_PALETTE" }
   | { type: "SET_PALETTE_QUERY"; query: string }
-  
+
   // Theme
   | { type: "SET_THEME"; themeId: string }
   | { type: "TOGGLE_THEME" }
-  
+
   // Terminal
   | { type: "OPEN_TERMINAL" }
   | { type: "CLOSE_TERMINAL"; terminalId: string }
   | { type: "FOCUS_TERMINAL"; terminalId: string }
-  
+
   // Workspace
   | { type: "SET_WORKSPACE"; path: string }
   | { type: "SET_DIRECTORY_TREE"; tree: DirectoryTree }
   | { type: "LOAD_DIRECTORY_CHILDREN"; path: string; children: DirectoryTree[] }
   | { type: "REFRESH_TREE" }
   | { type: "TOGGLE_DIRECTORY"; path: string }
-  
+
   // Panes
   | { type: "SPLIT_PANE"; direction: PaneDirection }
   | { type: "CLOSE_PANE"; paneId: string }
   | { type: "RESIZE_PANE"; paneId: string; size: number }
-  
+
   // File Picker
   | { type: "OPEN_FILE_PICKER" }
   | { type: "CLOSE_FILE_PICKER" }
-  
+
   // Theme Picker
   | { type: "OPEN_THEME_PICKER" }
   | { type: "CLOSE_THEME_PICKER" }

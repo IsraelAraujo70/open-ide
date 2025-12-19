@@ -1,6 +1,6 @@
 /**
  * OpenCode IDE - Entry Point
- * 
+ *
  * Terminal-based IDE built with OpenTUI (React for terminal)
  */
 
@@ -32,7 +32,7 @@ async function main() {
   root.render(<App />)
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error(error)
   cleanupAndExit(1)
 })

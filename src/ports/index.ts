@@ -1,7 +1,7 @@
 /**
  * Ports - Interfaces that define how the application layer communicates
  * with the outside world (file system, clipboard, processes, LSP, settings)
- * 
+ *
  * These are contracts that adapters must implement.
  */
 
@@ -54,10 +54,7 @@ export interface FileSystemPort {
   /**
    * Watch for file/directory changes
    */
-  watch(
-    path: string,
-    callback: (event: FileWatchEvent) => void
-  ): FileWatcher
+  watch(path: string, callback: (event: FileWatchEvent) => void): FileWatcher
 
   /**
    * Get file stats
@@ -150,7 +147,7 @@ export interface ChildProcess {
 
 export interface PtyProcess {
   readonly pid: number
-  
+
   /**
    * Write data to PTY stdin
    */

@@ -27,7 +27,7 @@ interface CommandItem {
 export function Palette({ query, theme, width, height, onClose, onQueryChange }: PaletteProps) {
   const { colors } = theme
   const [selectedIndex, setSelectedIndex] = useState(0)
-  
+
   // Get all available commands for the palette
   const allCommands = useMemo((): CommandItem[] => {
     return commandRegistry.getAll().map((cmd: Command) => ({
@@ -37,17 +37,17 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
       action: () => commandRegistry.execute(cmd.id),
     }))
   }, [])
-  
+
   // Filter commands based on query
   const filteredItems = useMemo(() => {
     if (!query) return allCommands
     const lowerQuery = query.toLowerCase()
-    return allCommands.filter((item: CommandItem) => 
-      item.label.toLowerCase().includes(lowerQuery) ||
-      item.id.toLowerCase().includes(lowerQuery)
+    return allCommands.filter(
+      (item: CommandItem) =>
+        item.label.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery)
     )
   }, [query, allCommands])
-  
+
   const handleKeyDown = (key: KeyEvent) => {
     if (key.name === "escape") {
       onClose()
@@ -63,11 +63,11 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
       setSelectedIndex((i: number) => Math.min(filteredItems.length - 1, i + 1))
     }
   }
-  
+
   // Center the palette
   const leftOffset = Math.floor((100 - width) / 2)
   const topOffset = 3
-  
+
   return (
     <box
       position="absolute"
@@ -97,16 +97,18 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
           onKeyDown={handleKeyDown}
         />
       </box>
-      
+
       {/* Divider */}
       <box height={1}>
         <text fg={colors.border}>{"─".repeat(width - 2)}</text>
       </box>
-      
+
       {/* Command list */}
       <scrollbox flexGrow={1}>
         {filteredItems.length === 0 ? (
-          <text fg={colors.comment} paddingLeft={1}>No matching commands</text>
+          <text fg={colors.comment} paddingLeft={1}>
+            No matching commands
+          </text>
         ) : (
           filteredItems.slice(0, height - 3).map((item: CommandItem, index: number) => (
             <PaletteItemRow
@@ -137,18 +139,17 @@ function PaletteItemRow({ item, isSelected, theme, onSelect }: PaletteItemRowPro
   const { colors } = theme
   const bg = isSelected ? colors.selection : colors.background
   const fg = colors.foreground
-  
+
   return (
-    <box
-      height={1}
-      backgroundColor={bg}
-      paddingLeft={1}
-      paddingRight={1}
-      onMouseDown={onSelect}
-    >
-      <text fg={fg} bg={bg}>{item.label}</text>
+    <box height={1} backgroundColor={bg} paddingLeft={1} paddingRight={1} onMouseDown={onSelect}>
+      <text fg={fg} bg={bg}>
+        {item.label}
+      </text>
       {item.description && (
-        <text fg={colors.comment} bg={bg}> - {item.description}</text>
+        <text fg={colors.comment} bg={bg}>
+          {" "}
+          - {item.description}
+        </text>
       )}
     </box>
   )

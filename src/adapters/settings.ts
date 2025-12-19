@@ -26,7 +26,7 @@ export class JsonSettingsAdapter implements SettingsPort {
     } catch {
       // File doesn't exist or is invalid
     }
-    
+
     this.cache = { ...defaults }
     return this.cache
   }
@@ -35,7 +35,7 @@ export class JsonSettingsAdapter implements SettingsPort {
     // Ensure config directory exists
     const proc = Bun.spawn(["mkdir", "-p", CONFIG_DIR])
     await proc.exited
-    
+
     await Bun.write(SETTINGS_FILE, JSON.stringify(settings, null, 2))
     this.cache = settings
   }

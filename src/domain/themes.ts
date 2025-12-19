@@ -124,11 +124,6 @@ export const oneLight: Theme = {
   colors: oneLightColors,
 }
 
-export const defaultThemes: Theme[] = [
-  tokyoNight,
-  catppuccinMocha,
-  dracula,
-  oneLight,
-]
+export const defaultThemes: Theme[] = [tokyoNight, catppuccinMocha, dracula, oneLight]
 
 export const defaultTheme = tokyoNight

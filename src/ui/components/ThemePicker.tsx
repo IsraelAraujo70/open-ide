@@ -17,10 +17,10 @@ interface ThemePickerProps {
 
 export function ThemePicker({ currentTheme, width, height, onSelect, onCancel }: ThemePickerProps) {
   const { colors } = currentTheme
-  const [selectedIndex, setSelectedIndex] = useState(() => 
+  const [selectedIndex, setSelectedIndex] = useState(() =>
     defaultThemes.findIndex(t => t.id === currentTheme.id)
   )
-  
+
   const handleKeyDown = (key: KeyEvent) => {
     if (key.name === "escape") {
       onCancel()
@@ -35,11 +35,11 @@ export function ThemePicker({ currentTheme, width, height, onSelect, onCancel }:
       setSelectedIndex(i => Math.min(defaultThemes.length - 1, i + 1))
     }
   }
-  
+
   // Center the picker
   const leftOffset = Math.floor((100 - width) / 2)
   const topOffset = Math.floor((24 - height) / 2)
-  
+
   return (
     <box
       position="absolute"
@@ -60,18 +60,14 @@ export function ThemePicker({ currentTheme, width, height, onSelect, onCancel }:
           <b>Select Theme</b>
         </text>
       </box>
-      
+
       {/* Divider */}
       <box height={1}>
         <text fg={colors.border}>{"─".repeat(width - 2)}</text>
       </box>
-      
+
       {/* Theme list */}
-      <scrollbox 
-        flexGrow={1}
-        onKeyDown={handleKeyDown}
-        focused={true}
-      >
+      <scrollbox flexGrow={1} onKeyDown={handleKeyDown} focused={true}>
         {defaultThemes.map((theme, index) => (
           <ThemeRow
             key={theme.id}
@@ -83,7 +79,7 @@ export function ThemePicker({ currentTheme, width, height, onSelect, onCancel }:
           />
         ))}
       </scrollbox>
-      
+
       {/* Preview */}
       <box height={1}>
         <text fg={colors.border}>{"─".repeat(width - 2)}</text>
@@ -92,7 +88,7 @@ export function ThemePicker({ currentTheme, width, height, onSelect, onCancel }:
         <text fg={colors.comment}>Preview:</text>
         <ThemePreview theme={defaultThemes[selectedIndex] ?? currentTheme} />
       </box>
-      
+
       {/* Help */}
       <box height={1} paddingLeft={1}>
         <text fg={colors.comment}>Enter: select | Esc: cancel</text>
@@ -114,16 +110,12 @@ function ThemeRow({ theme, isSelected, isCurrent, currentTheme, onSelect }: Them
   const bg = isSelected ? colors.selection : colors.background
   const indicator = isCurrent ? " *" : ""
   const label = `${theme.name}${indicator} (${theme.type})`
-  
+
   return (
-    <box
-      height={1}
-      backgroundColor={bg}
-      paddingLeft={1}
-      paddingRight={1}
-      onMouseDown={onSelect}
-    >
-      <text fg={colors.foreground} bg={bg}>{label}</text>
+    <box height={1} backgroundColor={bg} paddingLeft={1} paddingRight={1} onMouseDown={onSelect}>
+      <text fg={colors.foreground} bg={bg}>
+        {label}
+      </text>
     </box>
   )
 }
@@ -134,14 +126,28 @@ interface ThemePreviewProps {
 
 function ThemePreview({ theme }: ThemePreviewProps) {
   const { colors } = theme
-  
+
   return (
     <box flexDirection="row" height={1}>
-      <text bg={colors.background} fg={colors.foreground}>text</text>
-      <text bg={colors.background} fg={colors.keyword}> keyword</text>
-      <text bg={colors.background} fg={colors.string}> "string"</text>
-      <text bg={colors.background} fg={colors.comment}> // comment</text>
-      <text bg={colors.primary} fg={colors.background}> primary </text>
+      <text bg={colors.background} fg={colors.foreground}>
+        text
+      </text>
+      <text bg={colors.background} fg={colors.keyword}>
+        {" "}
+        keyword
+      </text>
+      <text bg={colors.background} fg={colors.string}>
+        {" "}
+        "string"
+      </text>
+      <text bg={colors.background} fg={colors.comment}>
+        {" "}
+        // comment
+      </text>
+      <text bg={colors.primary} fg={colors.background}>
+        {" "}
+        primary{" "}
+      </text>
     </box>
   )
 }

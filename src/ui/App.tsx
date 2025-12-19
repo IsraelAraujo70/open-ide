@@ -20,16 +20,16 @@ import { fileSystem } from "../adapters/index.ts"
 export function App() {
   const { width, height } = useTerminalDimensions()
   const [state, dispatch] = useStore()
-  
+
   // Initialize global keybindings
   useKeybindings()
-  
+
   // Auto-load current directory on startup
   useEffect(() => {
     const loadWorkspace = async () => {
       const cwd = process.cwd()
       dispatch({ type: "SET_WORKSPACE", path: cwd })
-      
+
       try {
         const tree = await fileSystem.buildTree(cwd, 2)
         dispatch({ type: "SET_DIRECTORY_TREE", tree })
@@ -37,23 +37,24 @@ export function App() {
         console.error("Failed to load workspace:", error)
       }
     }
-    
+
     loadWorkspace()
   }, [])
-  
+
   // Calculate layout dimensions
   const explorerWidth = 25
   const statusBarHeight = 1
   const tabBarHeight = 1
-  const terminalHeight = state.terminals.size > 0 ? Math.floor((height - statusBarHeight - tabBarHeight) * 0.3) : 0
+  const terminalHeight =
+    state.terminals.size > 0 ? Math.floor((height - statusBarHeight - tabBarHeight) * 0.3) : 0
   const editorHeight = height - statusBarHeight - tabBarHeight - terminalHeight
   const editorWidth = width - explorerWidth
-  
+
   // Get active buffer for the editor
   const activePane = getActivePane(state.layout)
   const activeTab = activePane?.tabs.find(t => t.isActive)
-  const activeBuffer = activeTab ? state.buffers.get(activeTab.bufferId) ?? null : null
-  
+  const activeBuffer = activeTab ? (state.buffers.get(activeTab.bufferId) ?? null) : null
+
   return (
     <box
       width={width}
@@ -62,13 +63,13 @@ export function App() {
       backgroundColor={state.theme.colors.background}
     >
       {/* Tab Bar */}
-      <TabBar 
+      <TabBar
         tabs={activePane?.tabs ?? []}
         activeTabId={activePane?.activeTabId ?? null}
         theme={state.theme}
         width={width}
       />
-      
+
       {/* Main Content Area */}
       <box flexDirection="row" flexGrow={1}>
         {/* File Explorer */}
@@ -80,7 +81,7 @@ export function App() {
           theme={state.theme}
           focused={state.focusTarget === "explorer"}
         />
-        
+
         {/* Editor Area */}
         <box flexDirection="column" flexGrow={1}>
           <Editor
@@ -90,7 +91,7 @@ export function App() {
             height={editorHeight}
             focused={state.focusTarget === "editor"}
           />
-          
+
           {/* Terminal Area (when visible) */}
           {state.terminals.size > 0 && (
             <box
@@ -100,14 +101,12 @@ export function App() {
               border={["top"]}
               borderColor={state.theme.colors.border}
             >
-              <text fg={state.theme.colors.foreground}>
-                Terminal (PTY integration pending)
-              </text>
+              <text fg={state.theme.colors.foreground}>Terminal (PTY integration pending)</text>
             </box>
           )}
         </box>
       </box>
-      
+
       {/* Status Bar */}
       <StatusBar
         theme={state.theme}
@@ -115,7 +114,7 @@ export function App() {
         buffer={activeBuffer}
         focusTarget={state.focusTarget}
       />
-      
+
       {/* Command Line Overlay */}
       {state.commandLine.isOpen && (
         <CommandLine
@@ -130,7 +129,7 @@ export function App() {
           onChange={(value: string) => dispatch({ type: "SET_COMMAND_LINE_VALUE", value })}
         />
       )}
-      
+
       {/* Command Palette Overlay */}
       {state.palette.isOpen && (
         <Palette
@@ -143,7 +142,7 @@ export function App() {
           onQueryChange={(query: string) => dispatch({ type: "SET_PALETTE_QUERY", query })}
         />
       )}
-      
+
       {/* File Picker Overlay */}
       {state.filePicker.isOpen && (
         <FilePicker
@@ -151,14 +150,14 @@ export function App() {
           width={Math.min(60, width - 4)}
           height={Math.min(20, height - 4)}
           initialPath={state.workspace.rootPath || process.cwd()}
-           onSelect={(path: string) => {
-             dispatch({ type: "CLOSE_FILE_PICKER" })
-             void commandRegistry.execute("file.open", { args: [path] })
-           }}
+          onSelect={(path: string) => {
+            dispatch({ type: "CLOSE_FILE_PICKER" })
+            void commandRegistry.execute("file.open", { args: [path] })
+          }}
           onCancel={() => dispatch({ type: "CLOSE_FILE_PICKER" })}
         />
       )}
-      
+
       {/* Theme Picker Overlay */}
       {state.themePicker.isOpen && (
         <ThemePicker
@@ -178,7 +177,9 @@ export function App() {
 
 // Helper to get the active pane from layout
 function getActivePane(layout: import("../domain/types.ts").PaneLayout) {
-  const findPane = (node: import("../domain/types.ts").PaneLayout["root"]): import("../domain/types.ts").Pane | null => {
+  const findPane = (
+    node: import("../domain/types.ts").PaneLayout["root"]
+  ): import("../domain/types.ts").Pane | null => {
     if (node.type === "leaf") {
       return node.pane
     }

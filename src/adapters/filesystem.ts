@@ -2,12 +2,7 @@
  * FileSystem Adapter - Bun implementation
  */
 
-import type {
-  FileSystemPort,
-  FileWatchEvent,
-  FileWatcher,
-  FileStat,
-} from "../ports/index.ts"
+import type { FileSystemPort, FileWatchEvent, FileWatcher, FileStat } from "../ports/index.ts"
 import type { FileEntry, DirectoryTree } from "../domain/types.ts"
 import { watch, readdirSync, statSync } from "fs"
 import { join, basename } from "path"
@@ -24,19 +19,19 @@ export class BunFileSystemAdapter implements FileSystemPort {
 
   async listDirectory(path: string): Promise<FileEntry[]> {
     const entries: FileEntry[] = []
-    
+
     try {
       const items = readdirSync(path, { withFileTypes: true })
-      
+
       for (const item of items) {
         // Skip hidden files and node_modules for performance
-        if (item.name.startsWith('.') && item.name !== '.gitignore' && item.name !== '.env') {
+        if (item.name.startsWith(".") && item.name !== ".gitignore" && item.name !== ".env") {
           continue
         }
-        
+
         const fullPath = join(path, item.name)
         const isDir = item.isDirectory()
-        
+
         let size = 0
         if (!isDir) {
           try {
@@ -46,7 +41,7 @@ export class BunFileSystemAdapter implements FileSystemPort {
             // Ignore stat errors
           }
         }
-        
+
         entries.push({
           name: item.name,
           path: fullPath,
@@ -58,7 +53,7 @@ export class BunFileSystemAdapter implements FileSystemPort {
       // Directory not readable
       return []
     }
-    
+
     // Sort: directories first, then alphabetically
     return entries.sort((a, b) => {
       if (a.type !== b.type) {
@@ -93,7 +88,7 @@ export class BunFileSystemAdapter implements FileSystemPort {
         })
         continue
       }
-      
+
       if (e.type === "directory") {
         const subtree = await this.buildTree(e.path, depth - 1)
         children.push(subtree)
@@ -130,14 +125,14 @@ export class BunFileSystemAdapter implements FileSystemPort {
   watch(path: string, callback: (event: FileWatchEvent) => void): FileWatcher {
     const watcher = watch(path, { recursive: true }, (eventType, filename) => {
       if (!filename) return
-      
+
       const fullPath = join(path, filename)
       let type: FileWatchEvent["type"] = "modify"
-      
+
       if (eventType === "rename") {
         type = "rename"
       }
-      
+
       callback({ type, path: fullPath })
     })
 

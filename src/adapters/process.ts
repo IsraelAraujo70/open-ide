@@ -1,6 +1,6 @@
 /**
  * Process Adapter - Bun implementation for spawning processes and PTY
- * 
+ *
  * Note: For PTY we use node-pty which needs to be installed separately.
  * For MVP, we implement a basic PTY using Bun.spawn with proper stdin/stdout handling.
  */
@@ -44,19 +44,14 @@ export class BunProcessAdapter implements ProcessPort {
     // For real PTY support we need node-pty or similar
     // This is a simplified implementation that works for basic cases
     // using script(1) command to create a pseudo-terminal on Unix systems
-    
+
     const cols = options?.cols ?? 80
     const rows = options?.rows ?? 24
-    
+
     // Use script command to create a pseudo-terminal
     // On Linux: script -q -c "command" /dev/null
-    const scriptArgs = [
-      "-q",
-      "-c",
-      [command, ...args].join(" "),
-      "/dev/null",
-    ]
-    
+    const scriptArgs = ["-q", "-c", [command, ...args].join(" "), "/dev/null"]
+
     const proc = Bun.spawn(["script", ...scriptArgs], {
       cwd: options?.cwd,
       env: {
@@ -91,11 +86,11 @@ export class BunProcessAdapter implements ProcessPort {
         // Stream closed
       }
     }
-    
+
     readStdout()
-    
+
     // Handle exit
-    proc.exited.then((code) => {
+    proc.exited.then(code => {
       for (const cb of exitCallbacks) {
         cb(code)
       }
@@ -103,7 +98,7 @@ export class BunProcessAdapter implements ProcessPort {
 
     return {
       pid: proc.pid,
-      
+
       write(data: string) {
         proc.stdin.write(data)
       },
