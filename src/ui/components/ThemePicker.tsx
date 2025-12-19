@@ -113,6 +113,7 @@ function ThemeRow({ theme, isSelected, isCurrent, currentTheme, onSelect }: Them
   const { colors } = currentTheme
   const bg = isSelected ? colors.selection : colors.background
   const indicator = isCurrent ? " *" : ""
+  const label = `${theme.name}${indicator} (${theme.type})`
   
   return (
     <box
@@ -122,12 +123,7 @@ function ThemeRow({ theme, isSelected, isCurrent, currentTheme, onSelect }: Them
       paddingRight={1}
       onMouseDown={onSelect}
     >
-      <text fg={colors.foreground} bg={bg}>
-        {theme.name}{indicator}
-      </text>
-      <text fg={colors.comment} bg={bg}>
-        {" "}({theme.type})
-      </text>
+      <text fg={colors.foreground} bg={bg}>{label}</text>
     </box>
   )
 }
