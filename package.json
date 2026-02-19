@@ -1,6 +1,6 @@
 {
   "name": "@israelaraujo70/open-ide",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Terminal IDE built with OpenTUI and Bun",
   "module": "index.tsx",
   "type": "module",
