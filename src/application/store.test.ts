@@ -98,3 +98,166 @@ describe("appReducer - palette focus transitions", () => {
     expect(next.focusTarget).toBe("palette")
   })
 })
+
+describe("appReducer - diagnostics", () => {
+  it("sets diagnostics for existing buffers", () => {
+    const opened = appReducer(createInitialState(), {
+      type: "OPEN_FILE",
+      path: "/tmp/example.ts",
+      content: "const value: string = 123",
+    })
+
+    const bufferId = Array.from(opened.buffers.keys())[0]
+    expect(bufferId).toBeDefined()
+
+    if (!bufferId) {
+      throw new Error("Buffer should exist")
+    }
+
+    const next = appReducer(opened, {
+      type: "SET_BUFFER_DIAGNOSTICS",
+      bufferId,
+      diagnostics: [
+        {
+          range: {
+            start: { line: 0, column: 0, offset: 0 },
+            end: { line: 0, column: 5, offset: 5 },
+          },
+          severity: "error",
+          message: "Type mismatch",
+          source: "ts",
+          code: 2322,
+        },
+      ],
+    })
+
+    expect(next.diagnostics.get(bufferId)?.length).toBe(1)
+    expect(next.diagnostics.get(bufferId)?.[0]?.message).toBe("Type mismatch")
+  })
+
+  it("ignores diagnostics for unknown buffers", () => {
+    const state = createInitialState()
+    const next = appReducer(state, {
+      type: "SET_BUFFER_DIAGNOSTICS",
+      bufferId: "missing",
+      diagnostics: [],
+    })
+
+    expect(next).toBe(state)
+    expect(next.diagnostics.size).toBe(0)
+  })
+
+  it("clears diagnostics for a specific buffer", () => {
+    const opened = appReducer(createInitialState(), {
+      type: "OPEN_FILE",
+      path: "/tmp/example.ts",
+      content: "const value: string = 123",
+    })
+
+    const bufferId = Array.from(opened.buffers.keys())[0]
+    expect(bufferId).toBeDefined()
+
+    if (!bufferId) {
+      throw new Error("Buffer should exist")
+    }
+
+    const withDiagnostics = appReducer(opened, {
+      type: "SET_BUFFER_DIAGNOSTICS",
+      bufferId,
+      diagnostics: [
+        {
+          range: {
+            start: { line: 0, column: 0, offset: 0 },
+            end: { line: 0, column: 5, offset: 5 },
+          },
+          severity: "warning",
+          message: "Unused value",
+        },
+      ],
+    })
+
+    const cleared = appReducer(withDiagnostics, {
+      type: "CLEAR_BUFFER_DIAGNOSTICS",
+      bufferId,
+    })
+
+    expect(cleared.diagnostics.has(bufferId)).toBe(false)
+  })
+
+  it("removes diagnostics when closing the last tab for a buffer", () => {
+    const opened = appReducer(createInitialState(), {
+      type: "OPEN_FILE",
+      path: "/tmp/example.ts",
+      content: "const value: string = 123",
+    })
+
+    const bufferId = Array.from(opened.buffers.keys())[0]
+    const pane = opened.layout.root.type === "leaf" ? opened.layout.root.pane : null
+    const tabId = pane?.activeTabId
+
+    expect(bufferId).toBeDefined()
+    expect(tabId).toBeDefined()
+
+    if (!bufferId || !tabId) {
+      throw new Error("Buffer and tab should exist")
+    }
+
+    const withDiagnostics = appReducer(opened, {
+      type: "SET_BUFFER_DIAGNOSTICS",
+      bufferId,
+      diagnostics: [
+        {
+          range: {
+            start: { line: 0, column: 0, offset: 0 },
+            end: { line: 0, column: 5, offset: 5 },
+          },
+          severity: "error",
+          message: "Type mismatch",
+        },
+      ],
+    })
+
+    const closed = appReducer(withDiagnostics, {
+      type: "CLOSE_TAB",
+      tabId,
+    })
+
+    expect(closed.buffers.has(bufferId)).toBe(false)
+    expect(closed.diagnostics.has(bufferId)).toBe(false)
+  })
+
+  it("clears all diagnostics on CLOSE_ALL_TABS", () => {
+    const opened = appReducer(createInitialState(), {
+      type: "OPEN_FILE",
+      path: "/tmp/example.ts",
+      content: "const value: string = 123",
+    })
+
+    const bufferId = Array.from(opened.buffers.keys())[0]
+    expect(bufferId).toBeDefined()
+
+    if (!bufferId) {
+      throw new Error("Buffer should exist")
+    }
+
+    const withDiagnostics = appReducer(opened, {
+      type: "SET_BUFFER_DIAGNOSTICS",
+      bufferId,
+      diagnostics: [
+        {
+          range: {
+            start: { line: 0, column: 0, offset: 0 },
+            end: { line: 0, column: 5, offset: 5 },
+          },
+          severity: "info",
+          message: "Info message",
+        },
+      ],
+    })
+
+    const closed = appReducer(withDiagnostics, { type: "CLOSE_ALL_TABS" })
+
+    expect(closed.buffers.size).toBe(0)
+    expect(closed.diagnostics.size).toBe(0)
+  })
+})
