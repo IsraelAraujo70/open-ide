@@ -24,7 +24,7 @@ const shortcutItems: ShortcutItem[] = [
   { keys: "Ctrl+S", action: "Save current file" },
   { keys: "Ctrl+N", action: "New file" },
   { keys: "Ctrl+O", action: "Open file picker" },
-  { keys: "Ctrl+Shift+O", action: "Open project picker" },
+  { keys: "Ctrl+Shift+M", action: "Open project picker" },
   { keys: "Esc", action: "INSERT -> NORMAL / close overlays" },
   { keys: "i / Insert / Enter", action: "NORMAL -> INSERT" },
   { keys: ":", action: "Open command line (NORMAL mode)" },

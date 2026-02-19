@@ -830,34 +830,102 @@ function ProjectDirectoryPicker({ theme, width, height, initialPath, onSelect, o
     return entries.filter(e => e.name.toLowerCase().includes(lowerFilter))
   }, [entries, filter])
 
+  useEffect(() => {
+    setSelectedIndex(index => {
+      if (filteredEntries.length === 0) return 0
+      return Math.max(0, Math.min(filteredEntries.length - 1, index))
+    })
+  }, [filteredEntries.length])
+
+  const goToParentDirectory = () => {
+    const parent = currentPath.split("/").slice(0, -1).join("/") || "/"
+    if (parent !== currentPath) {
+      setCurrentPath(parent)
+      setFilter("")
+      setSelectedIndex(0)
+    }
+  }
+
+  const openSelectedDirectory = () => {
+    const selected = filteredEntries[selectedIndex]
+    if (!selected) return
+
+    setCurrentPath(selected.path)
+    setFilter("")
+    setSelectedIndex(0)
+  }
+
   const handleKeyDown = (key: KeyEvent) => {
     const keyName = normalizeKeyName(key.name)
 
     if (keyName === "escape") {
+      key.preventDefault?.()
       onCancel()
-    } else if (keyName === "enter") {
+      return
+    }
+
+    if (keyName === "enter") {
+      key.preventDefault?.()
       if (key.shift) {
         onSelect(currentPath)
         return
       }
+      openSelectedDirectory()
+      return
+    }
 
-      const selected = filteredEntries[selectedIndex]
-      if (selected) {
-        setCurrentPath(selected.path)
-        setFilter("")
-      }
-    } else if (keyName === "up") {
+    if (keyName === "up") {
+      key.preventDefault?.()
       setSelectedIndex(i => Math.max(0, i - 1))
-    } else if (keyName === "down") {
+      return
+    }
+
+    if (keyName === "down") {
+      key.preventDefault?.()
       setSelectedIndex(i => Math.min(filteredEntries.length - 1, i + 1))
-    } else if (keyName === "backspace" && !filter) {
-      const parent = currentPath.split("/").slice(0, -1).join("/") || "/"
-      setCurrentPath(parent)
+      return
+    }
+
+    if (keyName === "pageup") {
+      key.preventDefault?.()
+      setSelectedIndex(i => Math.max(0, i - 10))
+      return
+    }
+
+    if (keyName === "pagedown") {
+      key.preventDefault?.()
+      setSelectedIndex(i => Math.min(filteredEntries.length - 1, i + 10))
+      return
+    }
+
+    if (keyName === "home") {
+      key.preventDefault?.()
+      setSelectedIndex(0)
+      return
+    }
+
+    if (keyName === "end") {
+      key.preventDefault?.()
+      setSelectedIndex(Math.max(0, filteredEntries.length - 1))
+      return
+    }
+
+    if (keyName === "right") {
+      key.preventDefault?.()
+      openSelectedDirectory()
+      return
+    }
+
+    if ((keyName === "left" || keyName === "backspace") && !filter) {
+      key.preventDefault?.()
+      goToParentDirectory()
     }
   }
 
   const leftOffset = Math.max(0, Math.floor((100 - width) / 2))
   const topOffset = 2
+  const footerText =
+    "Enter: open folder | Shift+Enter: select | ←/Backspace: parent | ↑↓: navigate"
 
   return (
     <box
@@ -913,15 +981,18 @@ function ProjectDirectoryPicker({ theme, width, height, initialPath, onSelect, o
             No folders found
           </text>
         ) : (
-          filteredEntries.slice(0, Math.max(1, height - 6)).map((entry, index) => (
+          filteredEntries.map((entry, index) => (
             <FileEntryRow
               key={entry.path}
               entry={entry}
               isSelected={index === selectedIndex}
               theme={theme}
               onSelect={() => {
-                setCurrentPath(entry.path)
-                setFilter("")
+                if (selectedIndex === index) {
+                  openSelectedDirectory()
+                  return
+                }
+                setSelectedIndex(index)
               }}
             />
           ))
@@ -929,7 +1000,7 @@ function ProjectDirectoryPicker({ theme, width, height, initialPath, onSelect, o
       </scrollbox>
 
       <box height={1} paddingLeft={1}>
-        <text fg={colors.comment}>Enter: open folder | Shift+Enter: select | Backspace: parent</text>
+        <text fg={colors.comment}>{truncate(footerText, width - 3)}</text>
       </box>
     </box>
   )

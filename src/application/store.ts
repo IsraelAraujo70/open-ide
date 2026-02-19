@@ -435,10 +435,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case "CLOSE_PALETTE": {
+      const nextFocus: FocusTarget = state.commandLine.isOpen
+        ? "commandLine"
+        : state.filePicker.isOpen || state.themePicker.isOpen || state.keybindingsHelp.isOpen
+          ? "palette"
+          : "editor"
+
       return {
         ...state,
         palette: { isOpen: false, query: "", items: [] },
-        focusTarget: "editor",
+        focusTarget: nextFocus,
       }
     }
 
@@ -613,6 +619,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         filePicker: { isOpen: true, mode: action.mode ?? "file" },
+        focusTarget: "palette",
       }
     }
 

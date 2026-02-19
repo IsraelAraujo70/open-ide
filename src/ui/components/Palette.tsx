@@ -4,7 +4,7 @@
 
 import type { Theme, PaletteItem, Command } from "../../domain/types.ts"
 import { commandRegistry } from "../../application/commands.ts"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { KeyEvent } from "@opentui/core"
 
 interface PaletteProps {
@@ -24,6 +24,11 @@ interface CommandItem {
   action: () => void
 }
 
+function normalizeKeyName(name: string): string {
+  if (name === "return") return "enter"
+  return name.toLowerCase()
+}
+
 export function Palette({ query, theme, width, height, onClose, onQueryChange }: PaletteProps) {
   const { colors } = theme
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -32,7 +37,7 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
   const allCommands = useMemo((): CommandItem[] => {
     return commandRegistry.getAll().map((cmd: Command) => ({
       id: cmd.id,
-      label: cmd.name,
+      label: cmd.name?.trim() || cmd.id,
       description: cmd.description,
       action: () => commandRegistry.execute(cmd.id),
     }))
@@ -44,22 +49,41 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
     const lowerQuery = query.toLowerCase()
     return allCommands.filter(
       (item: CommandItem) =>
-        item.label.toLowerCase().includes(lowerQuery) || item.id.toLowerCase().includes(lowerQuery)
+        item.label.toLowerCase().includes(lowerQuery) ||
+        item.id.toLowerCase().includes(lowerQuery) ||
+        item.description?.toLowerCase().includes(lowerQuery)
     )
   }, [query, allCommands])
 
+  useEffect(() => {
+    setSelectedIndex(index => {
+      if (filteredItems.length === 0) return 0
+      return Math.max(0, Math.min(filteredItems.length - 1, index))
+    })
+  }, [filteredItems.length])
+
+  const runSelectedAction = (item: CommandItem | undefined) => {
+    if (!item) {
+      return
+    }
+
+    void Promise.resolve(item.action()).finally(onClose)
+  }
+
   const handleKeyDown = (key: KeyEvent) => {
-    if (key.name === "escape") {
+    const keyName = normalizeKeyName(key.name)
+
+    if (keyName === "escape") {
+      key.preventDefault?.()
       onClose()
-    } else if (key.name === "return" || key.name === "enter") {
-      const selected = filteredItems[selectedIndex]
-      if (selected) {
-        selected.action()
-        onClose()
-      }
-    } else if (key.name === "up") {
+    } else if (keyName === "enter") {
+      key.preventDefault?.()
+      runSelectedAction(filteredItems[selectedIndex])
+    } else if (keyName === "up") {
+      key.preventDefault?.()
       setSelectedIndex((i: number) => Math.max(0, i - 1))
-    } else if (key.name === "down") {
+    } else if (keyName === "down") {
+      key.preventDefault?.()
       setSelectedIndex((i: number) => Math.min(filteredItems.length - 1, i + 1))
     }
   }
@@ -93,7 +117,10 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
           textColor={colors.foreground}
           placeholder="Type to search commands..."
           placeholderColor={colors.comment}
-          onInput={onQueryChange}
+          onInput={(value: string) => {
+            setSelectedIndex(0)
+            onQueryChange(value)
+          }}
           onKeyDown={handleKeyDown}
         />
       </box>
@@ -116,10 +143,7 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
               item={item}
               isSelected={index === selectedIndex}
               theme={theme}
-              onSelect={() => {
-                item.action()
-                onClose()
-              }}
+              onSelect={() => runSelectedAction(item)}
             />
           ))
         )}
@@ -138,17 +162,16 @@ interface PaletteItemRowProps {
 function PaletteItemRow({ item, isSelected, theme, onSelect }: PaletteItemRowProps) {
   const { colors } = theme
   const bg = isSelected ? colors.selection : colors.background
-  const fg = colors.foreground
+  const primaryLabel = item.label.trim() || item.id
 
   return (
     <box height={1} backgroundColor={bg} paddingLeft={1} paddingRight={1} onMouseDown={onSelect}>
-      <text fg={fg} bg={bg}>
-        {item.label}
+      <text fg={colors.foreground} bg={bg}>
+        {primaryLabel}
       </text>
       {item.description && (
         <text fg={colors.comment} bg={bg}>
-          {" "}
-          - {item.description}
+          {"  "}{item.description}
         </text>
       )}
     </box>
