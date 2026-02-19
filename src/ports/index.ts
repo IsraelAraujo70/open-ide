@@ -225,6 +225,11 @@ export interface LspClient {
   didSave(uri: string, text?: string): void
 
   /**
+   * Notify server that workspace/client configuration changed
+   */
+  didChangeConfiguration(settings: Record<string, unknown>): void
+
+  /**
    * Get completions at position
    */
   completion(uri: string, position: CursorPosition): Promise<CompletionItem[]>

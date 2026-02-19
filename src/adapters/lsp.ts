@@ -57,6 +57,14 @@ interface LspHoverResult {
   range?: LspRange
 }
 
+interface LspConfigurationItem {
+  section?: unknown
+}
+
+interface LspWorkspaceConfigurationParams {
+  items?: unknown
+}
+
 const COMPLETION_KIND_MAP: Record<number, string> = {
   1: "text",
   2: "method",
@@ -99,6 +107,7 @@ export class StdioLspClient implements LspClient {
   private encoder = new TextEncoder()
   private initialized = false
   private closed = false
+  private workspaceSettings: Record<string, unknown> = {}
 
   constructor(language: string, process: ChildProcess) {
     this.language = language
@@ -188,6 +197,11 @@ export class StdioLspClient implements LspClient {
       textDocument: { uri },
       text,
     })
+  }
+
+  didChangeConfiguration(settings: Record<string, unknown>): void {
+    this.workspaceSettings = settings
+    this.sendNotification("workspace/didChangeConfiguration", { settings })
   }
 
   async completion(uri: string, position: CursorPosition): Promise<CompletionItem[]> {
@@ -439,6 +453,11 @@ export class StdioLspClient implements LspClient {
       return
     }
 
+    if (hasId && method === "workspace/configuration") {
+      this.handleWorkspaceConfigurationRequest(message.id, message.params)
+      return
+    }
+
     // We do not currently implement server -> client requests.
     if (hasId) {
       this.sendErrorResponse(message.id, {
@@ -483,6 +502,16 @@ export class StdioLspClient implements LspClient {
     for (const callback of this.diagnosticsCallbacks) {
       callback(parsed.uri, parsed.diagnostics)
     }
+  }
+
+  private handleWorkspaceConfigurationRequest(id: unknown, params: unknown): void {
+    const sections = parseWorkspaceConfigurationSections(params)
+    const result = sections.map(section => resolveWorkspaceSection(this.workspaceSettings, section))
+    this.enqueueMessage({
+      jsonrpc: "2.0",
+      id,
+      result,
+    })
   }
 
   private handleProcessClosed(): void {
@@ -749,6 +778,52 @@ function normalizeHoverContents(contents: unknown): string {
   }
 
   return ""
+}
+
+function parseWorkspaceConfigurationSections(params: unknown): string[] {
+  if (!isRecord(params)) {
+    return []
+  }
+
+  const data = params as LspWorkspaceConfigurationParams
+  if (!Array.isArray(data.items)) {
+    return []
+  }
+
+  return data.items
+    .map(item => {
+      if (!isRecord(item)) {
+        return null
+      }
+
+      const config = item as LspConfigurationItem
+      return typeof config.section === "string" ? config.section : null
+    })
+    .map(section => section ?? "")
+}
+
+function resolveWorkspaceSection(settings: Record<string, unknown>, section: string): unknown {
+  if (!section) {
+    return settings
+  }
+
+  const direct = settings[section]
+  if (direct !== undefined) {
+    return direct
+  }
+
+  const parts = section.split(".")
+  let current: unknown = settings
+
+  for (const part of parts) {
+    if (!isRecord(current) || !(part in current)) {
+      return null
+    }
+
+    current = current[part]
+  }
+
+  return current
 }
 
 function encodeMessage(

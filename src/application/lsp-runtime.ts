@@ -8,7 +8,7 @@
  * - didClose when buffer is removed
  */
 
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import type { AppAction, AppState, BufferState, LspServerConfig } from "../domain/types.ts"
 import type { LspClient } from "../ports/index.ts"
 import { defaultSettings } from "../ports/index.ts"
@@ -40,7 +40,7 @@ class LspRuntime {
   private previousState: AppState = store.getState()
   private configs: Map<string, LspServerConfig> = new Map()
   private documents: Map<string, TrackedDocument> = new Map()
-  private uriToBufferId: Map<string, string> = new Map()
+  private uriToBufferIds: Map<string, Set<string>> = new Map()
   private changeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
   private initializingClients: Map<string, Promise<LspClient | null>> = new Map()
   private initializedLanguages: Set<string> = new Set()
@@ -109,7 +109,7 @@ class LspRuntime {
     await this.stopAllServers()
 
     this.documents.clear()
-    this.uriToBufferId.clear()
+    this.uriToBufferIds.clear()
     this.initializingClients.clear()
     this.initializedLanguages.clear()
     this.diagnosticsBoundLanguages.clear()
@@ -152,7 +152,7 @@ class LspRuntime {
     }
 
     this.documents.clear()
-    this.uriToBufferId.clear()
+    this.uriToBufferIds.clear()
 
     void this.stopAllServers().finally(() => {
       this.dispatchInternal({ type: "CLEAR_ALL_DIAGNOSTICS" })
@@ -220,7 +220,7 @@ class LspRuntime {
     }
 
     this.documents.set(buffer.id, document)
-    this.uriToBufferId.set(uri, buffer.id)
+    this.addUriBufferMapping(uri, buffer.id)
 
     const openPromise = this.ensureClient(serverLanguage, workspaceRoot)
       .then(client => {
@@ -233,6 +233,7 @@ class LspRuntime {
           return
         }
 
+        this.syncLanguageConfiguration(current.serverLanguage, client)
         client.didOpen(current.uri, current.languageId, current.version, current.content)
         current.opened = true
       })
@@ -256,7 +257,8 @@ class LspRuntime {
     }
 
     this.documents.delete(bufferId)
-    this.uriToBufferId.delete(tracked.uri)
+    this.removeUriBufferMapping(tracked.uri, bufferId)
+    this.syncLanguageConfiguration(tracked.serverLanguage)
 
     const closeTask = async () => {
       try {
@@ -377,16 +379,18 @@ class LspRuntime {
 
       if (!this.diagnosticsBoundLanguages.has(serverLanguage)) {
         client.onDiagnostics((uri, diagnostics) => {
-          const bufferId = this.uriToBufferId.get(uri)
-          if (!bufferId) {
+          const bufferIds = this.uriToBufferIds.get(uri)
+          if (!bufferIds || bufferIds.size === 0) {
             return
           }
 
-          this.dispatchInternal({
-            type: "SET_BUFFER_DIAGNOSTICS",
-            bufferId,
-            diagnostics,
-          })
+          for (const bufferId of bufferIds) {
+            this.dispatchInternal({
+              type: "SET_BUFFER_DIAGNOSTICS",
+              bufferId,
+              diagnostics,
+            })
+          }
         })
         this.diagnosticsBoundLanguages.add(serverLanguage)
       }
@@ -409,6 +413,7 @@ class LspRuntime {
       }
 
       this.activeLanguages.add(serverLanguage)
+      this.syncLanguageConfiguration(serverLanguage, client)
       return client
     })()
 
@@ -504,6 +509,64 @@ class LspRuntime {
 
   private buildFallbackKey(config: Pick<LspServerConfig, "command" | "args">): string {
     return `${config.command}\u0000${config.args.join("\u0000")}`
+  }
+
+  private syncLanguageConfiguration(serverLanguage: string, providedClient?: LspClient): void {
+    if (serverLanguage !== "rust") {
+      return
+    }
+
+    const client = providedClient ?? lsp.getClient(serverLanguage)
+    if (!client || !client.isReady) {
+      return
+    }
+
+    const linkedProjects = this.getRustLinkedProjects()
+    client.didChangeConfiguration({
+      "rust-analyzer": {
+        linkedProjects,
+      },
+    })
+  }
+
+  private getRustLinkedProjects(): string[] {
+    const projects = new Set<string>()
+
+    for (const document of this.documents.values()) {
+      if (document.serverLanguage !== "rust") {
+        continue
+      }
+
+      try {
+        projects.add(fileURLToPath(document.uri))
+      } catch {
+        // Ignore malformed URIs.
+      }
+    }
+
+    return Array.from(projects).sort()
+  }
+
+  private addUriBufferMapping(uri: string, bufferId: string): void {
+    const existing = this.uriToBufferIds.get(uri)
+    if (existing) {
+      existing.add(bufferId)
+      return
+    }
+
+    this.uriToBufferIds.set(uri, new Set([bufferId]))
+  }
+
+  private removeUriBufferMapping(uri: string, bufferId: string): void {
+    const existing = this.uriToBufferIds.get(uri)
+    if (!existing) {
+      return
+    }
+
+    existing.delete(bufferId)
+    if (existing.size === 0) {
+      this.uriToBufferIds.delete(uri)
+    }
   }
 
   private async stopAllServers(): Promise<void> {
