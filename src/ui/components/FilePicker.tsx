@@ -10,6 +10,7 @@ import type { Theme, FileEntry } from "../../domain/types.ts"
 import { fileSystem } from "../../adapters/index.ts"
 import { folderColor, getFileIcon, getFolderIcon } from "../../domain/fileIcons.ts"
 import type { KeyEvent } from "@opentui/core"
+import { getFiletype, getSyntaxStyle, getTreeSitter, initTreeSitter, isTreeSitterReady } from "../../shared/index.ts"
 
 interface FilePickerProps {
   theme: Theme
@@ -45,7 +46,6 @@ interface TreeListItem {
 const IGNORED_DIRS = new Set(["node_modules", "dist", "build", "coverage", "target", "out", ".next"])
 const MAX_INDEXED_FILES = 6000
 const MAX_PREVIEW_CHARS = 20000
-const MAX_PREVIEW_LINES = 240
 
 export function FilePicker({ mode = "file", ...props }: FilePickerProps) {
   if (mode === "project") {
@@ -67,6 +67,30 @@ function ProjectFileFinder({ theme, width, height, initialPath, onSelect, onCanc
   const [previewPath, setPreviewPath] = useState<string | null>(null)
   const [previewText, setPreviewText] = useState<string>("")
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [treeSitterReady, setTreeSitterReady] = useState(isTreeSitterReady())
+
+  useEffect(() => {
+    let mounted = true
+
+    if (isTreeSitterReady()) {
+      setTreeSitterReady(true)
+      return
+    }
+
+    initTreeSitter()
+      .then(() => {
+        if (mounted) {
+          setTreeSitterReady(true)
+        }
+      })
+      .catch(error => {
+        console.error("Failed to initialize Tree-sitter for preview:", error)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     let disposed = false
@@ -419,7 +443,7 @@ function ProjectFileFinder({ theme, width, height, initialPath, onSelect, onCanc
   const topOffset = 1
   const leftPaneWidth = Math.max(28, Math.floor((width - 3) * 0.45))
   const rightPaneWidth = Math.max(20, width - leftPaneWidth - 3)
-  const previewLines = previewText.split("\n").slice(0, MAX_PREVIEW_LINES)
+  const previewFiletype = previewPath ? getFiletype(previewPath) : null
 
   return (
     <box
@@ -514,26 +538,37 @@ function ProjectFileFinder({ theme, width, height, initialPath, onSelect, onCanc
             <text fg={colors.border}>{"─".repeat(Math.max(1, rightPaneWidth - 1))}</text>
           </box>
 
-          <scrollbox flexGrow={1}>
+          <box flexGrow={1}>
             {previewLoading ? (
               <text fg={colors.comment} paddingLeft={1}>
                 Loading preview...
               </text>
             ) : previewPath ? (
-              <box flexDirection="column">
-                {previewLines.map((line, idx) => (
-                  <box key={`${previewPath}-${idx}`} height={1} paddingLeft={1}>
-                    <text fg={colors.comment}>{String(idx + 1).padStart(4, " ")}</text>
-                    <text fg={colors.foreground}> {line}</text>
-                  </box>
-                ))}
-              </box>
+              <line-number
+                flexGrow={1}
+                fg={colors.comment}
+                bg={colors.background}
+                minWidth={4}
+                paddingRight={1}
+              >
+                <code
+                  content={previewText}
+                  filetype={previewFiletype ?? undefined}
+                  syntaxStyle={getSyntaxStyle(theme)}
+                  treeSitterClient={treeSitterReady ? getTreeSitter() : undefined}
+                  drawUnstyledText={true}
+                  conceal={false}
+                  wrapMode="none"
+                  fg={colors.foreground}
+                  bg={colors.background}
+                />
+              </line-number>
             ) : (
               <text fg={colors.comment} paddingLeft={1}>
                 Select a file to preview
               </text>
             )}
-          </scrollbox>
+          </box>
         </box>
       </box>
 
