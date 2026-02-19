@@ -1,5 +1,5 @@
 /**
- * Main App Component - Root layout for OpenCode IDE
+ * Main App Component - Root layout for Open IDE
  */
 
 import { useEffect } from "react"
@@ -43,11 +43,13 @@ export function App() {
   }, [])
 
   // Calculate layout dimensions
-  const resizeHandleWidth = 2
+  const resizeHandleWidth = state.explorerVisible ? 2 : 0
   const minExplorerWidth = 8
   const editorMinWidth = 20
   const maxExplorerWidth = Math.max(minExplorerWidth, width - resizeHandleWidth - editorMinWidth)
-  const explorerWidth = Math.max(minExplorerWidth, Math.min(maxExplorerWidth, state.explorerWidth))
+  const explorerWidth = state.explorerVisible
+    ? Math.max(minExplorerWidth, Math.min(maxExplorerWidth, state.explorerWidth))
+    : 0
 
   const statusBarHeight = 1
   const tabBarHeight = 1
@@ -84,21 +86,25 @@ export function App() {
       {/* Main Content Area */}
       <box flexDirection="row" flexGrow={1}>
         {/* File Explorer */}
-        <Explorer
-          width={explorerWidth}
-          height={editorHeight}
-          directoryTree={state.workspace.directoryTree}
-          rootPath={state.workspace.rootPath}
-          theme={state.theme}
-          focused={state.focusTarget === "explorer"}
-        />
+        {state.explorerVisible && (
+          <Explorer
+            width={explorerWidth}
+            height={editorHeight}
+            directoryTree={state.workspace.directoryTree}
+            rootPath={state.workspace.rootPath}
+            theme={state.theme}
+            focused={state.focusTarget === "explorer"}
+          />
+        )}
 
-        <ResizeHandle
-          height={editorHeight}
-          theme={state.theme}
-          explorerWidth={explorerWidth}
-          onResize={handleExplorerResize}
-        />
+        {state.explorerVisible && (
+          <ResizeHandle
+            height={editorHeight}
+            theme={state.theme}
+            explorerWidth={explorerWidth}
+            onResize={handleExplorerResize}
+          />
+        )}
 
         {/* Editor Area */}
         <box flexDirection="column" flexGrow={1}>
@@ -131,6 +137,7 @@ export function App() {
         width={width}
         buffer={activeBuffer}
         focusTarget={state.focusTarget}
+        editorMode={state.editorMode}
       />
 
       {/* Command Line Overlay */}

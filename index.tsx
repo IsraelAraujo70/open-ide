@@ -1,5 +1,5 @@
 /**
- * OpenCode IDE - Entry Point
+ * Open IDE - Entry Point
  *
  * Terminal-based IDE built with OpenTUI (React for terminal)
  */

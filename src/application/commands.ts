@@ -65,12 +65,24 @@ class CommandRegistry {
       quit: "app.quit",
       qa: "app.quitAll",
       wq: "file.saveAndQuit",
+      x: "file.saveAndQuit",
+      insert: "mode.insert",
+      startinsert: "mode.insert",
+      normal: "mode.normal",
+      stopinsert: "mode.normal",
+      xit: "file.saveAndQuit",
+      bd: "tab.close",
+      bdelete: "tab.close",
 
       // Navigation
       tabnext: "tab.next",
       tabprev: "tab.prev",
       tabn: "tab.next",
       tabp: "tab.prev",
+      bn: "tab.next",
+      bp: "tab.prev",
+      bnext: "tab.next",
+      bprev: "tab.prev",
 
       // Theme
       theme: "theme.set",
@@ -86,6 +98,13 @@ class CommandRegistry {
       // Project
       project: "project.open",
       cd: "project.open",
+      ex: "focus.explorer",
+      explore: "focus.explorer",
+      tree: "explorer.toggle",
+      files: "filePicker.open",
+      find: "filePicker.open",
+      fzf: "filePicker.open",
+      telescope: "palette.open",
     }
 
     const commandId = aliasMap[commandName]
@@ -292,6 +311,27 @@ commandRegistry.register({
   },
 })
 
+// Editor Modes
+commandRegistry.register({
+  id: "mode.insert",
+  name: "Switch to Insert Mode",
+  category: "Editor",
+  execute: () => {
+    store.dispatch({ type: "SET_EDITOR_MODE", mode: "insert" })
+    store.dispatch({ type: "SET_FOCUS", target: "editor" })
+  },
+})
+
+commandRegistry.register({
+  id: "mode.normal",
+  name: "Switch to Normal Mode",
+  category: "Editor",
+  execute: () => {
+    store.dispatch({ type: "SET_EDITOR_MODE", mode: "normal" })
+    store.dispatch({ type: "SET_FOCUS", target: "editor" })
+  },
+})
+
 // Focus Operations
 commandRegistry.register({
   id: "focus.editor",
@@ -307,7 +347,20 @@ commandRegistry.register({
   name: "Focus Explorer",
   category: "Navigation",
   execute: () => {
+    const state = store.getState()
+    if (!state.explorerVisible) {
+      store.dispatch({ type: "TOGGLE_EXPLORER" })
+    }
     store.dispatch({ type: "SET_FOCUS", target: "explorer" })
+  },
+})
+
+commandRegistry.register({
+  id: "explorer.toggle",
+  name: "Toggle File Tree",
+  category: "Navigation",
+  execute: () => {
+    store.dispatch({ type: "TOGGLE_EXPLORER" })
   },
 })
 
@@ -316,7 +369,21 @@ commandRegistry.register({
   name: "Focus Terminal",
   category: "Navigation",
   execute: () => {
-    store.dispatch({ type: "SET_FOCUS", target: "terminal" })
+    const state = store.getState()
+    if (state.terminals.size === 0) {
+      store.dispatch({ type: "OPEN_TERMINAL" })
+      return
+    }
+
+    const activeTerminal = Array.from(state.terminals.values()).find(t => t.isActive)
+    if (activeTerminal) {
+      store.dispatch({ type: "FOCUS_TERMINAL", terminalId: activeTerminal.id })
+    } else {
+      const first = state.terminals.values().next().value
+      if (first) {
+        store.dispatch({ type: "FOCUS_TERMINAL", terminalId: first.id })
+      }
+    }
   },
 })
 

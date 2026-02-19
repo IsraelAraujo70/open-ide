@@ -12,7 +12,6 @@ interface CommandLineProps {
   onCancel: () => void
   onChange: (value: string) => void
 }
-
 export function CommandLine({
   value,
   theme,

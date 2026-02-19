@@ -2,25 +2,20 @@
  * StatusBar Component - Bottom status bar showing file info, cursor position, etc.
  */
 
-import type { Theme, BufferState, FocusTarget } from "../../domain/types.ts"
+import type { Theme, BufferState, FocusTarget, EditorMode } from "../../domain/types.ts"
 
 interface StatusBarProps {
   theme: Theme
   width: number
   buffer: BufferState | null
   focusTarget: FocusTarget
+  editorMode: EditorMode
 }
 
-export function StatusBar({ theme, width, buffer, focusTarget }: StatusBarProps) {
+export function StatusBar({ theme, width, buffer, focusTarget, editorMode }: StatusBarProps) {
   const { colors } = theme
 
-  // Build status segments
-  const fileName = buffer?.filePath
-    ? buffer.filePath.split("/").pop()
-    : buffer
-      ? "Untitled"
-      : "No file"
-
+  const fileName = buffer?.filePath ? buffer.filePath.split("/").pop() : buffer ? "Untitled" : "No file"
   const modified = buffer?.isDirty ? " [+]" : ""
   const language = buffer?.language ?? "plaintext"
 
@@ -28,41 +23,85 @@ export function StatusBar({ theme, width, buffer, focusTarget }: StatusBarProps)
     ? `Ln ${buffer.cursorPosition.line + 1}, Col ${buffer.cursorPosition.column + 1}`
     : ""
 
-  const focusIndicator = getFocusIndicator(focusTarget)
+  const mode = getModeLabel(focusTarget, editorMode)
+  const modeColor = getModeColor(theme, focusTarget, editorMode)
 
-  // Calculate spacing
-  const leftContent = ` ${fileName}${modified}`
-  const rightContent = `${language} | ${cursorInfo} | ${focusIndicator} `
-  const middleSpaces = Math.max(0, width - leftContent.length - rightContent.length)
+  const hintText = getHintText(width)
+  const rightBase = cursorInfo ? `${language} | ${cursorInfo}` : language
+  const rightContent = hintText ? `${rightBase} | ${hintText} ` : `${rightBase} `
+
+  const modeTag = ` ${mode} `
+  const leftMain = ` ${fileName}${modified}`
+  const middleSpaces = Math.max(1, width - modeTag.length - leftMain.length - rightContent.length)
 
   return (
-    <box height={1} width={width} backgroundColor={colors.primary} flexDirection="row">
-      <text fg={colors.background} bg={colors.primary}>
-        {leftContent}
+    <box height={1} width={width} backgroundColor={colors.lineHighlight} flexDirection="row">
+      <text fg={colors.background} bg={modeColor}>
+        {modeTag}
       </text>
-      <text fg={colors.background} bg={colors.primary}>
+      <text fg={colors.foreground} bg={colors.lineHighlight}>
+        {leftMain}
+      </text>
+      <text fg={colors.foreground} bg={colors.lineHighlight}>
         {" ".repeat(middleSpaces)}
       </text>
-      <text fg={colors.background} bg={colors.primary}>
+      <text fg={colors.comment} bg={colors.lineHighlight}>
         {rightContent}
       </text>
     </box>
   )
 }
 
-function getFocusIndicator(focus: FocusTarget): string {
+function getModeLabel(focus: FocusTarget, editorMode: EditorMode): string {
   switch (focus) {
     case "editor":
-      return "EDIT"
+      return editorMode === "insert" ? "INSERT" : "NORMAL"
     case "explorer":
       return "EXPLORER"
     case "terminal":
-      return "TERM"
+      return "TERMINAL"
     case "commandLine":
-      return "CMD"
+      return "COMMAND"
     case "palette":
       return "PALETTE"
     default:
-      return ""
+      return "NORMAL"
   }
+}
+
+function getModeColor(theme: Theme, focus: FocusTarget, editorMode: EditorMode): string {
+  const { colors } = theme
+
+  if (focus === "editor") {
+    return editorMode === "insert" ? colors.success : colors.primary
+  }
+
+  switch (focus) {
+    case "explorer":
+      return colors.primary
+    case "terminal":
+      return colors.warning
+    case "commandLine":
+      return colors.accent
+    case "palette":
+      return colors.secondary
+    default:
+      return colors.primary
+  }
+}
+
+function getHintText(width: number): string {
+  if (width >= 120) {
+    return "Esc NORMAL | Insert/Enter INSERT | Ctrl+B file tree | :w :q"
+  }
+
+  if (width >= 90) {
+    return "Esc/NORMAL | Insert/INSERT | Ctrl+B | :w :q"
+  }
+
+  if (width >= 70) {
+    return "Esc | Insert | :w :q"
+  }
+
+  return ""
 }

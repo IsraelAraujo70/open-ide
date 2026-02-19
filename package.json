@@ -1,5 +1,5 @@
 {
-  "name": "opencode-ide",
+  "name": "open-ide",
   "module": "index.tsx",
   "type": "module",
   "private": true,

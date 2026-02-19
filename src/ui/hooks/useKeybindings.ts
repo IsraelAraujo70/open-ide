@@ -27,8 +27,10 @@ const defaultKeybindings: KeybindingConfig[] = [
 
   // Navigation
   { key: "p", ctrl: true, command: "palette.open" },
-  { key: "Tab", ctrl: true, command: "tab.next" },
-  { key: "Tab", ctrl: true, shift: true, command: "tab.prev" },
+  { key: "p", ctrl: true, shift: true, command: "palette.open" },
+  { key: "tab", ctrl: true, command: "tab.next" },
+  { key: "tab", ctrl: true, shift: true, command: "tab.prev" },
+  { key: "b", ctrl: true, command: "explorer.toggle" },
 
   // Edit
   { key: "c", ctrl: true, command: "clipboard.copy" },
@@ -44,6 +46,30 @@ const defaultKeybindings: KeybindingConfig[] = [
   { key: "e", ctrl: true, shift: true, command: "focus.explorer" },
   { key: "`", ctrl: true, command: "terminal.open" },
 ]
+
+const editorNavKeys = new Set(["left", "right", "up", "down", "home", "end", "pageup", "pagedown"])
+const editorInsertKeys = new Set(["insert", "return", "enter", "i"])
+
+function normalizeKeyName(name: string): string {
+  if (name === "return") return "enter"
+  return name.toLowerCase()
+}
+
+function matchesBinding(event: KeyEvent, binding: KeybindingConfig): boolean {
+  const eventKey = normalizeKeyName(event.name)
+  const bindingKey = normalizeKeyName(binding.key)
+
+  const altPressed = !!event.option || !!event.meta
+  const metaPressed = !!event.super
+
+  return (
+    eventKey === bindingKey &&
+    !!event.ctrl === !!binding.ctrl &&
+    !!event.shift === !!binding.shift &&
+    altPressed === !!binding.alt &&
+    metaPressed === !!binding.meta
+  )
+}
 
 export function useKeybindings() {
   useKeyboard((event: KeyEvent) => {
@@ -67,39 +93,65 @@ export function useKeybindings() {
         commandRegistry.execute("themePicker.close")
         return
       }
-      // Escape from editor focus (for : command line)
-      if (state.focusTarget === "editor") {
-        store.dispatch({ type: "SET_FOCUS", target: "editor" })
-        // The UI will handle showing that we're ready for : input
+
+      if (state.focusTarget === "editor" && state.editorMode === "insert") {
+        event.preventDefault?.()
+        commandRegistry.execute("mode.normal")
         return
       }
-    }
 
-    // Handle : for command line (only when not focused on editor input)
-    if (
-      event.sequence === ":" &&
-      state.focusTarget !== "commandLine" &&
-      state.focusTarget !== "palette"
-    ) {
-      commandRegistry.execute("commandLine.open")
+      if (state.focusTarget !== "editor") {
+        commandRegistry.execute("focus.editor")
+      }
       return
     }
 
-    // Check keybindings
-    for (const binding of defaultKeybindings) {
-      const matches =
-        event.name === binding.key.toLowerCase() &&
-        !!event.ctrl === !!binding.ctrl &&
-        !!event.shift === !!binding.shift &&
-        !!event.meta === !!binding.alt
+    const hasModalOpen =
+      state.commandLine.isOpen || state.palette.isOpen || state.filePicker.isOpen || state.themePicker.isOpen
 
-      if (matches) {
+    // Let active modal widgets handle their own key events.
+    if (hasModalOpen) {
+      return
+    }
+
+    // Check keybindings first so Ctrl/Meta shortcuts keep working in all editor modes.
+    for (const binding of defaultKeybindings) {
+      if (matchesBinding(event, binding)) {
         if (!binding.when || binding.when(state)) {
           event.preventDefault?.()
           commandRegistry.execute(binding.command)
           return
         }
       }
+    }
+
+    const keyName = normalizeKeyName(event.name)
+
+    if (state.focusTarget === "editor" && state.editorMode === "normal") {
+      if (editorInsertKeys.has(keyName)) {
+        event.preventDefault?.()
+        commandRegistry.execute("mode.insert")
+        return
+      }
+
+      if (event.sequence === ":") {
+        event.preventDefault?.()
+        commandRegistry.execute("commandLine.open")
+        return
+      }
+
+      // Block text editing keys in NORMAL mode, while preserving arrow navigation.
+      const hasModifier = !!event.ctrl || !!event.meta || !!event.option || !!event.super
+      if (!hasModifier && !editorNavKeys.has(keyName)) {
+        event.preventDefault?.()
+      }
+      return
+    }
+
+    // Open command line outside INSERT mode using :
+    if (event.sequence === ":" && state.focusTarget !== "editor") {
+      commandRegistry.execute("commandLine.open")
+      return
     }
   })
 }

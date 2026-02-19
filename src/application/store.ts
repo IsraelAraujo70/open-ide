@@ -45,8 +45,10 @@ export const createInitialState = (): AppState => ({
   buffers: new Map(),
   layout: createInitialLayout(),
   explorerWidth: 25,
+  explorerVisible: true,
   theme: defaultTheme,
   focusTarget: "editor",
+  editorMode: "insert",
   commandLine: {
     isOpen: false,
     value: "",
@@ -327,6 +329,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, buffers: newBuffers }
     }
 
+    case "SET_EDITOR_MODE": {
+      return { ...state, editorMode: action.mode }
+    }
+
     case "SET_FOCUS": {
       return { ...state, focusTarget: action.target }
     }
@@ -335,6 +341,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const minWidth = 8
       const width = Math.max(minWidth, Math.floor(action.width))
       return { ...state, explorerWidth: width }
+    }
+
+    case "TOGGLE_EXPLORER": {
+      const explorerVisible = !state.explorerVisible
+      const focusTarget =
+        !explorerVisible && state.focusTarget === "explorer" ? "editor" : state.focusTarget
+
+      return { ...state, explorerVisible, focusTarget }
     }
 
     case "SWITCH_TAB": {

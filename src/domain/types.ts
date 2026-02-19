@@ -1,5 +1,5 @@
 /**
- * Domain Types - Core business entities for OpenCode IDE
+ * Domain Types - Core business entities for Open IDE
  * These are pure data structures with no dependencies on infrastructure
  */
 
@@ -192,6 +192,7 @@ export interface HoverInfo {
 // ============================================================================
 
 export type FocusTarget = "editor" | "commandLine" | "explorer" | "terminal" | "palette"
+export type EditorMode = "normal" | "insert"
 
 export interface AppState {
   workspace: {
@@ -201,8 +202,10 @@ export interface AppState {
   buffers: Map<string, BufferState>
   layout: PaneLayout
   explorerWidth: number
+  explorerVisible: boolean
   theme: Theme
   focusTarget: FocusTarget
+  editorMode: EditorMode
   commandLine: {
     isOpen: boolean
     value: string
@@ -246,6 +249,7 @@ export type AppAction =
   | { type: "SET_BUFFER_CONTENT"; bufferId: string; content: string }
   | { type: "SET_CURSOR"; bufferId: string; position: CursorPosition }
   | { type: "SET_SELECTION"; bufferId: string; selection: Selection | null }
+  | { type: "SET_EDITOR_MODE"; mode: EditorMode }
 
   // Navigation
   | { type: "SET_FOCUS"; target: FocusTarget }
@@ -287,6 +291,7 @@ export type AppAction =
 
   // Explorer
   | { type: "SET_EXPLORER_WIDTH"; width: number }
+  | { type: "TOGGLE_EXPLORER" }
 
   // File Picker
   | { type: "OPEN_FILE_PICKER"; mode?: "file" | "project" }

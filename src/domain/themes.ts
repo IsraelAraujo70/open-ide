@@ -1,5 +1,5 @@
 /**
- * Default themes for OpenCode IDE
+ * Default themes for Open IDE
  */
 
 import type { Theme, ThemeColors } from "./types.ts"

@@ -11,10 +11,11 @@
  */
 
 import { useRef, useEffect, useState, useCallback } from "react"
-import type { TextareaRenderable } from "@opentui/core"
-import type { BufferState, Theme } from "../../domain/types.ts"
+import type { KeyEvent, TextareaRenderable } from "@opentui/core"
+import type { BufferState, CursorPosition, Selection, Theme } from "../../domain/types.ts"
 import { getTreeSitter, initTreeSitter, getFiletype } from "../../shared/index.ts"
 import { getSyntaxStyle } from "../../shared/syntaxStyle.ts"
+import { store } from "../../application/store.ts"
 
 // Re-define the highlight types locally to avoid module resolution issues
 interface HighlightRange {
@@ -50,6 +51,53 @@ function getNumericBufferId(bufferId: string): number {
   return id
 }
 
+function toCursorPosition(row: number, col: number, offset: number): CursorPosition {
+  return {
+    line: row,
+    column: col,
+    offset,
+  }
+}
+
+function toSelection(
+  textarea: TextareaRenderable,
+  selection: { start: number; end: number } | null
+): Selection | null {
+  if (!selection) {
+    return null
+  }
+
+  const anchor = textarea.editBuffer.offsetToPosition(selection.start)
+  const focus = textarea.editBuffer.offsetToPosition(selection.end)
+
+  if (!anchor || !focus) {
+    return null
+  }
+
+  return {
+    anchor: toCursorPosition(anchor.row, anchor.col, selection.start),
+    focus: toCursorPosition(focus.row, focus.col, selection.end),
+  }
+}
+
+function isSameSelection(a: Selection | null, b: Selection | null): boolean {
+  if (!a && !b) {
+    return true
+  }
+  if (!a || !b) {
+    return false
+  }
+
+  return (
+    a.anchor.line === b.anchor.line &&
+    a.anchor.column === b.anchor.column &&
+    a.anchor.offset === b.anchor.offset &&
+    a.focus.line === b.focus.line &&
+    a.focus.column === b.focus.column &&
+    a.focus.offset === b.focus.offset
+  )
+}
+
 export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
   const { colors } = theme
   const textareaRef = useRef<TextareaRenderable | null>(null)
@@ -82,6 +130,132 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       textareaRef.current.syntaxStyle = syntaxStyle
     }
   }, [theme, buffer])
+
+  const syncBufferState = useCallback(() => {
+    if (!buffer || !textareaRef.current) return
+
+    const textarea = textareaRef.current
+    const nextContent = textarea.plainText
+
+    if (nextContent !== buffer.content) {
+      store.dispatch({
+        type: "SET_BUFFER_CONTENT",
+        bufferId: buffer.id,
+        content: nextContent,
+      })
+    }
+
+    const logicalCursor = textarea.logicalCursor
+    const nextCursor = toCursorPosition(logicalCursor.row, logicalCursor.col, logicalCursor.offset)
+
+    if (
+      nextCursor.line !== buffer.cursorPosition.line ||
+      nextCursor.column !== buffer.cursorPosition.column ||
+      nextCursor.offset !== buffer.cursorPosition.offset
+    ) {
+      store.dispatch({
+        type: "SET_CURSOR",
+        bufferId: buffer.id,
+        position: nextCursor,
+      })
+    }
+
+    const nextSelection = toSelection(textarea, textarea.getSelection())
+    if (!isSameSelection(buffer.selection, nextSelection)) {
+      store.dispatch({
+        type: "SET_SELECTION",
+        bufferId: buffer.id,
+        selection: nextSelection,
+      })
+    }
+  }, [buffer])
+
+  const handleEditorKeyDown = useCallback(
+    (event: KeyEvent) => {
+      const state = store.getState()
+      if (state.focusTarget !== "editor") return
+
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      const keyName = event.name === "return" ? "enter" : event.name.toLowerCase()
+      const ctrlOrMeta = !!event.ctrl || !!event.meta
+      const hasHardModifier = !!event.ctrl || !!event.meta || !!event.option || !!event.super
+
+      if (ctrlOrMeta && keyName === "z" && !event.option && !event.super) {
+        event.preventDefault?.()
+        if (event.shift) {
+          textarea.redo()
+        } else {
+          textarea.undo()
+        }
+        syncBufferState()
+        return
+      }
+
+      if (state.editorMode !== "insert") return
+
+      if (keyName === "tab" && !hasHardModifier) {
+        event.preventDefault?.()
+
+        if (event.shift) {
+          const selection = textarea.getSelection()
+
+          if (selection && selection.start !== selection.end) {
+            const startOffset = Math.min(selection.start, selection.end)
+            const endOffset = Math.max(selection.start, selection.end)
+            const startPos = textarea.editBuffer.offsetToPosition(startOffset)
+            const endPos = textarea.editBuffer.offsetToPosition(endOffset)
+
+            if (!startPos || !endPos) return
+
+            for (let line = endPos.row; line >= startPos.row; line--) {
+              const lineStartOffset = textarea.editBuffer.getLineStartOffset(line)
+              const linePrefix = textarea.getTextRange(lineStartOffset, lineStartOffset + 4)
+              let removeCount = 0
+
+              while (
+                removeCount < 4 &&
+                removeCount < linePrefix.length &&
+                linePrefix[removeCount] === " "
+              ) {
+                removeCount++
+              }
+
+              if (removeCount > 0) {
+                textarea.deleteRange(line, 0, line, removeCount)
+              }
+            }
+          } else {
+            const cursor = textarea.logicalCursor
+            if (cursor.col > 0) {
+              const lineStartOffset = textarea.editBuffer.getLineStartOffset(cursor.row)
+              const textBeforeCursor = textarea.getTextRange(lineStartOffset, cursor.offset)
+              let removeCount = 0
+
+              for (
+                let i = textBeforeCursor.length - 1;
+                i >= 0 && removeCount < 4 && textBeforeCursor[i] === " ";
+                i--
+              ) {
+                removeCount++
+              }
+
+              if (removeCount > 0) {
+                textarea.deleteRange(cursor.row, cursor.col - removeCount, cursor.row, cursor.col)
+              }
+            }
+          }
+        } else {
+          textarea.insertText("    ")
+        }
+
+        syncBufferState()
+        return
+      }
+    },
+    [syncBufferState]
+  )
 
   // Handle highlight responses from Tree-sitter
   const applyHighlights = useCallback(
@@ -164,19 +338,23 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       >
         <box flexDirection="column" alignItems="center">
           <text fg={colors.comment}>
-            <b>OpenCode IDE</b>
+            <b>Open IDE</b>
           </text>
           <text fg={colors.comment}> </text>
           <text fg={colors.comment}>Press Ctrl+O to open a file</text>
           <text fg={colors.comment}>Press Ctrl+N to create a new file</text>
           <text fg={colors.comment}>Press Ctrl+P for command palette</text>
+          <text fg={colors.comment}>Type :w to save and :q to quit</text>
+          <text fg={colors.comment}>Esc: NORMAL | Insert/Enter: INSERT</text>
+          <text fg={colors.comment}>Tab/Shift+Tab: indent | Ctrl+Z / Ctrl+Shift+Z</text>
         </box>
       </box>
     )
   }
 
-  // TODO: Line numbers disabled due to OpenTUI insertBefore bug
+  // TODO: Line numbers disabled due to OpenTUI bug
   // See: https://github.com/sst/opentui/issues/432
+  // Using <line-number> wrapper causes: "Cannot remove target directly. Use clearTarget() instead."
 
   return (
     <box width={width} height={height} flexDirection="row">
@@ -193,6 +371,9 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
         selectionBg={colors.selection}
         wrapMode="none"
         syntaxStyle={getSyntaxStyle(theme)}
+        onContentChange={syncBufferState}
+        onCursorChange={syncBufferState}
+        onKeyDown={handleEditorKeyDown}
       />
     </box>
   )

@@ -1,4 +1,4 @@
-# OpenCode IDE - Agent Instructions
+# Open IDE - Agent Instructions
 
 ## Commands
 

@@ -1,4 +1,4 @@
-# opencode-ide
+# open-ide
 
 To install dependencies:
 

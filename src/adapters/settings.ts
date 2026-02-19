@@ -1,5 +1,5 @@
 /**
- * Settings Adapter - Persists settings to ~/.config/opencode-ide/settings.json
+ * Settings Adapter - Persists settings to ~/.config/open-ide/settings.json
  */
 
 import type { SettingsPort, Settings } from "../ports/index.ts"
@@ -7,7 +7,7 @@ import { defaultSettings as defaults } from "../ports/index.ts"
 import { join } from "path"
 import { homedir } from "os"
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode-ide")
+const CONFIG_DIR = join(homedir(), ".config", "open-ide")
 const SETTINGS_FILE = join(CONFIG_DIR, "settings.json")
 
 export class JsonSettingsAdapter implements SettingsPort {
