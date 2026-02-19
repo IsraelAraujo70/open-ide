@@ -1,15 +1,19 @@
 # open-ide
 
-To install dependencies:
+Terminal IDE built with OpenTUI and Bun.
+
+## Run locally
 
 ```bash
 bun install
+bun run index.tsx
 ```
 
-To run:
+## Install from npm
+
+Requires Bun installed in your machine (`bun --version`).
 
 ```bash
-bun run index.ts
+npm install -g @israelaraujo70/open-ide
+open-ide
 ```
-
-This project was created using `bun init` in bun v1.3.3. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
