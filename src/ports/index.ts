@@ -313,12 +313,17 @@ export const defaultSettings: Settings = {
     },
     python: {
       language: "python",
-      command: "pylsp",
-      args: [],
+      command: "ruff",
+      args: ["server"],
     },
     go: {
       language: "go",
       command: "gopls",
+      args: [],
+    },
+    rust: {
+      language: "rust",
+      command: "rust-analyzer",
       args: [],
     },
   },

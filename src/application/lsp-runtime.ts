@@ -424,31 +424,86 @@ class LspRuntime {
     serverLanguage: string,
     config: LspServerConfig
   ): Promise<LspClient | null> {
-    try {
-      return await lsp.startServer(config)
-    } catch (error) {
-      if (serverLanguage !== "typescript" || config.command === "bunx") {
-        console.error(`[LSP runtime] Failed to start server for ${serverLanguage}:`, error)
-        return null
+    const attempts = [config, ...this.getServerFallbackConfigs(serverLanguage, config)]
+
+    for (const [index, attempt] of attempts.entries()) {
+      const isFallback = index > 0
+
+      if (isFallback) {
+        console.error(
+          `[LSP runtime] Trying fallback "${attempt.command}" for ${serverLanguage} language server startup`
+        )
       }
 
-      const fallbackConfig: LspServerConfig = {
+      try {
+        return await lsp.startServer(attempt)
+      } catch (error) {
+        const kind = isFallback ? "fallback server startup" : "server startup"
+        console.error(
+          `[LSP runtime] Failed ${kind} for ${serverLanguage} using "${attempt.command}":`,
+          error
+        )
+      }
+    }
+
+    return null
+  }
+
+  private getServerFallbackConfigs(
+    serverLanguage: string,
+    config: LspServerConfig
+  ): LspServerConfig[] {
+    const fallbacks: LspServerConfig[] = []
+
+    if (serverLanguage === "typescript") {
+      fallbacks.push({
         language: config.language,
         command: "bunx",
         args: ["typescript-language-server", "--stdio"],
         rootUri: config.rootUri,
-      }
-
-      try {
-        console.error(
-          `[LSP runtime] Falling back to bunx for ${serverLanguage} language server startup`
-        )
-        return await lsp.startServer(fallbackConfig)
-      } catch (fallbackError) {
-        console.error(`[LSP runtime] Failed to start fallback server for ${serverLanguage}:`, fallbackError)
-        return null
-      }
+      })
     }
+
+    if (serverLanguage === "python") {
+      fallbacks.push(
+        {
+          language: config.language,
+          command: "ruff",
+          args: ["server"],
+          rootUri: config.rootUri,
+        },
+        {
+          language: config.language,
+          command: "ruff-lsp",
+          args: [],
+          rootUri: config.rootUri,
+        },
+        {
+          language: config.language,
+          command: "pylsp",
+          args: [],
+          rootUri: config.rootUri,
+        }
+      )
+    }
+
+    const seen = new Set<string>([this.buildFallbackKey(config)])
+    const uniqueFallbacks: LspServerConfig[] = []
+
+    for (const fallback of fallbacks) {
+      const key = this.buildFallbackKey(fallback)
+      if (seen.has(key)) {
+        continue
+      }
+      seen.add(key)
+      uniqueFallbacks.push(fallback)
+    }
+
+    return uniqueFallbacks
+  }
+
+  private buildFallbackKey(config: Pick<LspServerConfig, "command" | "args">): string {
+    return `${config.command}\u0000${config.args.join("\u0000")}`
   }
 
   private async stopAllServers(): Promise<void> {
