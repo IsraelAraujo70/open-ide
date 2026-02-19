@@ -219,9 +219,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
       // Remove buffer if no other tabs reference it
       const newBuffers = new Map(state.buffers)
+      const newDiagnostics = new Map(state.diagnostics)
       const isBufferUsedElsewhere = newTabs.some(t => t.bufferId === closingTab.bufferId)
       if (!isBufferUsedElsewhere) {
         newBuffers.delete(closingTab.bufferId)
+        newDiagnostics.delete(closingTab.bufferId)
       }
 
       // Determine new active tab
@@ -247,7 +249,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         })),
       }
 
-      return { ...state, buffers: newBuffers, layout: newLayout }
+      return { ...state, buffers: newBuffers, diagnostics: newDiagnostics, layout: newLayout }
     }
 
     case "NEW_FILE": {
@@ -542,8 +544,37 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         buffers: new Map(),
+        diagnostics: new Map(),
         layout: newLayout,
       }
+    }
+
+    case "SET_BUFFER_DIAGNOSTICS": {
+      if (!state.buffers.has(action.bufferId)) {
+        return state
+      }
+
+      const newDiagnostics = new Map(state.diagnostics)
+      newDiagnostics.set(action.bufferId, action.diagnostics)
+      return { ...state, diagnostics: newDiagnostics }
+    }
+
+    case "CLEAR_BUFFER_DIAGNOSTICS": {
+      if (!state.diagnostics.has(action.bufferId)) {
+        return state
+      }
+
+      const newDiagnostics = new Map(state.diagnostics)
+      newDiagnostics.delete(action.bufferId)
+      return { ...state, diagnostics: newDiagnostics }
+    }
+
+    case "CLEAR_ALL_DIAGNOSTICS": {
+      if (state.diagnostics.size === 0) {
+        return state
+      }
+
+      return { ...state, diagnostics: new Map() }
     }
 
     case "SET_DIRECTORY_TREE": {

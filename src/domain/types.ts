@@ -23,6 +23,7 @@ export interface CursorPosition {
   offset: number
 }
 
+
 export interface Selection {
   anchor: CursorPosition
   focus: CursorPosition
@@ -310,3 +311,8 @@ export type AppAction =
   // Keybindings Help
   | { type: "OPEN_KEYBINDINGS_HELP" }
   | { type: "CLOSE_KEYBINDINGS_HELP" }
+
+  // Diagnostics
+  | { type: "SET_BUFFER_DIAGNOSTICS"; bufferId: string; diagnostics: Diagnostic[] }
+  | { type: "CLEAR_BUFFER_DIAGNOSTICS"; bufferId: string }
+  | { type: "CLEAR_ALL_DIAGNOSTICS" }

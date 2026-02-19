@@ -308,8 +308,8 @@ export const defaultSettings: Settings = {
   lspServers: {
     typescript: {
       language: "typescript",
-      command: "typescript-language-server",
-      args: ["--stdio"],
+      command: "bunx",
+      args: ["typescript-language-server", "--stdio"],
     },
     python: {
       language: "python",

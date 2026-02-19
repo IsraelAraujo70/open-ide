@@ -96,6 +96,12 @@ export function createSyntaxStyleFromTheme(theme: Theme): SyntaxStyle {
     "markup.link": { fg: parseColor(colors.accent), underline: true },
     "markup.list": { fg: parseColor(colors.secondary) },
     "markup.raw": { fg: parseColor(colors.string) },
+
+    // Diagnostics overlays
+    "diagnostic.error": { fg: parseColor(colors.error), underline: true },
+    "diagnostic.warning": { fg: parseColor(colors.warning), underline: true },
+    "diagnostic.info": { fg: parseColor(colors.info), underline: true },
+    "diagnostic.hint": { fg: parseColor(colors.accent), underline: true },
   })
 }
 

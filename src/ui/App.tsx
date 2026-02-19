@@ -19,6 +19,7 @@ import { useKeybindings } from "./hooks/useKeybindings.ts"
 import { commandRegistry, parseAndExecuteCommand } from "../application/commands.ts"
 import { fileSystem } from "../adapters/index.ts"
 import { setTreeSitterWorkspaceRoot } from "../shared/index.ts"
+import { initializeLspRuntime, shutdownLspRuntime } from "../application/lsp-runtime.ts"
 
 export function App() {
   const { width, height } = useTerminalDimensions()
@@ -26,6 +27,18 @@ export function App() {
 
   // Initialize global keybindings
   useKeybindings()
+
+  useEffect(() => {
+    initializeLspRuntime().catch(error => {
+      console.error("Failed to initialize LSP runtime:", error)
+    })
+
+    return () => {
+      shutdownLspRuntime().catch(error => {
+        console.error("Failed to shutdown LSP runtime:", error)
+      })
+    }
+  }, [])
 
   // Auto-load current directory on startup
   useEffect(() => {
@@ -76,6 +89,7 @@ export function App() {
   const activePane = getActivePane(state.layout)
   const activeTab = activePane?.tabs.find(t => t.isActive)
   const activeBuffer = activeTab ? (state.buffers.get(activeTab.bufferId) ?? null) : null
+  const activeDiagnostics = activeBuffer ? (state.diagnostics.get(activeBuffer.id) ?? []) : []
 
   return (
     <box
@@ -88,6 +102,7 @@ export function App() {
       <TabBar
         tabs={activePane?.tabs ?? []}
         activeTabId={activePane?.activeTabId ?? null}
+        diagnostics={state.diagnostics}
         theme={state.theme}
         width={width}
       />
@@ -119,6 +134,7 @@ export function App() {
         <box flexDirection="column" flexGrow={1}>
           <Editor
             buffer={activeBuffer}
+            diagnostics={activeDiagnostics}
             theme={state.theme}
             width={editorWidth}
             height={editorHeight}
@@ -145,6 +161,7 @@ export function App() {
         theme={state.theme}
         width={width}
         buffer={activeBuffer}
+        diagnostics={activeDiagnostics}
         focusTarget={state.focusTarget}
         editorMode={state.editorMode}
       />
