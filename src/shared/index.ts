@@ -5,6 +5,7 @@
 export {
   getTreeSitter,
   initTreeSitter,
+  setTreeSitterWorkspaceRoot,
   isTreeSitterReady,
   getFiletype,
   destroyTreeSitter,

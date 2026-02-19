@@ -11,7 +11,8 @@ import * as path from "node:path"
 
 let client: TreeSitterClient | null = null
 let initPromise: Promise<void> | null = null
-let customParsersLoaded = false
+let workspaceRoot = process.cwd()
+let parserRegistrationQueue: Promise<void> = Promise.resolve()
 
 interface ParserManifest {
   parsers: CustomParserDefinition[]
@@ -86,13 +87,28 @@ export async function initTreeSitter(): Promise<void> {
   const ts = getTreeSitter()
   initPromise = (async () => {
     await ts.initialize()
-    await registerCustomParsers(ts)
+    await configureParsersForWorkspace(ts, workspaceRoot)
   })().catch(error => {
     initPromise = null
     throw error
   })
 
   return initPromise
+}
+
+/**
+ * Update active workspace root used for parser manifest discovery.
+ * This is safe to call whenever the user switches project.
+ */
+export async function setTreeSitterWorkspaceRoot(rootPath: string): Promise<void> {
+  workspaceRoot = path.resolve(rootPath)
+  resetExtensionMap()
+
+  if (!client?.isInitialized()) {
+    return
+  }
+
+  await configureParsersForWorkspace(client, workspaceRoot)
 }
 
 /**
@@ -124,7 +140,8 @@ export async function destroyTreeSitter(): Promise<void> {
     await client.destroy()
     client = null
     initPromise = null
-    customParsersLoaded = false
+    workspaceRoot = process.cwd()
+    parserRegistrationQueue = Promise.resolve()
     resetExtensionMap()
   }
 }
@@ -258,18 +275,7 @@ function parseParserManifest(raw: string): ParserManifest {
   return { parsers }
 }
 
-async function registerCustomParsers(ts: TreeSitterClient): Promise<void> {
-  if (customParsersLoaded) {
-    return
-  }
-
-  customParsersLoaded = true
-
-  const envManifestPath = process.env.OPEN_IDE_PARSERS_FILE?.trim()
-  const manifestPath = envManifestPath
-    ? path.resolve(envManifestPath)
-    : path.join(process.cwd(), ".open-ide", "parsers.json")
-
+async function loadParsersManifest(ts: TreeSitterClient, manifestPath: string): Promise<void> {
   let rawManifest: string
   try {
     rawManifest = await fs.readFile(manifestPath, "utf8")
@@ -315,4 +321,29 @@ async function registerCustomParsers(ts: TreeSitterClient): Promise<void> {
       extensionToFiletype.set(extension, parser.filetype)
     }
   }
+}
+
+async function configureParsersForWorkspace(
+  ts: TreeSitterClient,
+  activeWorkspaceRoot: string
+): Promise<void> {
+  parserRegistrationQueue = parserRegistrationQueue
+    .then(async () => {
+      resetExtensionMap()
+
+      const envManifestPath = process.env.OPEN_IDE_PARSERS_FILE?.trim()
+      const manifests = [
+        envManifestPath ? path.resolve(envManifestPath) : null,
+        path.join(activeWorkspaceRoot, ".open-ide", "parsers.json"),
+      ].filter((manifestPath): manifestPath is string => !!manifestPath)
+
+      for (const manifestPath of manifests) {
+        await loadParsersManifest(ts, manifestPath)
+      }
+    })
+    .catch(error => {
+      console.error("[TreeSitter] Failed to configure parsers for workspace:", error)
+    })
+
+  await parserRegistrationQueue
 }

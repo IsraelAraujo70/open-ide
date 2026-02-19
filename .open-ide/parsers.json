@@ -1,0 +1,28 @@
+{
+  "parsers": [
+    {
+      "filetype": "rust",
+      "extensions": [".rs"],
+      "wasm": "https://github.com/tree-sitter/tree-sitter-rust/releases/latest/download/tree-sitter-rust.wasm",
+      "queries": {
+        "highlights": ["./parsers/rust/highlights.scm"]
+      }
+    },
+    {
+      "filetype": "go",
+      "extensions": [".go"],
+      "wasm": "https://github.com/tree-sitter/tree-sitter-go/releases/latest/download/tree-sitter-go.wasm",
+      "queries": {
+        "highlights": ["./parsers/go/highlights.scm"]
+      }
+    },
+    {
+      "filetype": "python",
+      "extensions": [".py"],
+      "wasm": "https://github.com/tree-sitter/tree-sitter-python/releases/latest/download/tree-sitter-python.wasm",
+      "queries": {
+        "highlights": ["./parsers/python/highlights.scm"]
+      }
+    }
+  ]
+}

@@ -16,6 +16,9 @@
 ## Adicionar Linguagens Extras
 
 Crie o arquivo `.open-ide/parsers.json` na raiz do workspace (ou use `OPEN_IDE_PARSERS_FILE`).
+Ao trocar de projeto no `Open Project`, o editor recarrega automaticamente o manifesto do novo workspace.
+Este repositório já inclui um manifesto base em `.open-ide/parsers.json` com Rust, Go e Python.
+As queries de highlight dessas linguagens estão versionadas localmente em `.open-ide/parsers/*/highlights.scm`.
 
 Exemplo:
 
@@ -55,3 +58,4 @@ Observações:
 - caminhos relativos são resolvidos a partir da pasta do manifesto;
 - `queries.highlights` é obrigatório;
 - `queries.injections` e `injectionMapping` são opcionais.
+- para URLs remotas, o download ocorre no primeiro uso do parser (cache em `.opentui-data/`).

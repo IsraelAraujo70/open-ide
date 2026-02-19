@@ -18,6 +18,7 @@ import { KeybindingsHelp } from "./components/KeybindingsHelp"
 import { useKeybindings } from "./hooks/useKeybindings.ts"
 import { commandRegistry, parseAndExecuteCommand } from "../application/commands.ts"
 import { fileSystem } from "../adapters/index.ts"
+import { setTreeSitterWorkspaceRoot } from "../shared/index.ts"
 
 export function App() {
   const { width, height } = useTerminalDimensions()
@@ -42,6 +43,13 @@ export function App() {
 
     loadWorkspace()
   }, [])
+
+  useEffect(() => {
+    const rootPath = state.workspace.rootPath ?? process.cwd()
+    setTreeSitterWorkspaceRoot(rootPath).catch(error => {
+      console.error("Failed to configure Tree-sitter workspace:", error)
+    })
+  }, [state.workspace.rootPath])
 
   // Calculate layout dimensions
   const resizeHandleWidth = state.explorerVisible ? 2 : 0
