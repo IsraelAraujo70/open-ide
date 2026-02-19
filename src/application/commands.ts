@@ -10,6 +10,7 @@
 import type { Command } from "../domain/types.ts"
 import { store } from "./store.ts"
 import { fileSystem, clipboard, settings, cleanupAndExit } from "../adapters/index.ts"
+import { isAbsolute, resolve } from "node:path"
 
 class CommandRegistry {
   private commands: Map<string, Command> = new Map()
@@ -164,13 +165,17 @@ commandRegistry.register({
   category: "File",
   execute: async args => {
     const argsArray = (args?.args as string[]) ?? []
-    const path = argsArray[0]
+    const rawPath = argsArray[0]
 
-    if (!path) {
+    if (!rawPath) {
       // Open file picker when no path provided
       store.dispatch({ type: "OPEN_FILE_PICKER" })
       return
     }
+
+    const state = store.getState()
+    const workspaceRoot = state.workspace.rootPath ?? process.cwd()
+    const path = isAbsolute(rawPath) ? rawPath : resolve(workspaceRoot, rawPath)
 
     // Load file content and open
     const exists = await fileSystem.exists(path)

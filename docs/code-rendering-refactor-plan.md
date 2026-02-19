@@ -60,5 +60,5 @@ Expected result:
 ## Risks / Notes
 
 1. Tree-sitter worker startup may add first-open latency in preview.
-2. Unsupported filetypes still render plain text (expected fallback).
+2. Unsupported filetypes render sem highlight (no syntax fallback).
 3. Very large files should stay clipped (`MAX_PREVIEW_CHARS`) to preserve performance.

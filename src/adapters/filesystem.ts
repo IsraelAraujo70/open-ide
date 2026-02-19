@@ -24,8 +24,8 @@ export class BunFileSystemAdapter implements FileSystemPort {
       const items = readdirSync(path, { withFileTypes: true })
 
       for (const item of items) {
-        // Skip hidden files and node_modules for performance
-        if (item.name.startsWith(".") && item.name !== ".gitignore" && item.name !== ".env") {
+        // Skip VCS internals to avoid indexing massive metadata trees.
+        if (item.name === ".git" && item.isDirectory()) {
           continue
         }
 

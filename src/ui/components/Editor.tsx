@@ -106,6 +106,10 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
   const { colors } = theme
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions()
   const textareaRef = useRef<TextareaRenderable | null>(null)
+  const activeBufferIdRef = useRef<string | null>(null)
+  const treeSitterBufferIdRef = useRef<number | null>(null)
+  const treeSitterHasParserRef = useRef(false)
+  const treeSitterLastContentRef = useRef("")
   const [treeSitterReady, setTreeSitterReady] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const versionRef = useRef(0)
@@ -136,6 +140,22 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       textareaRef.current.syntaxStyle = syntaxStyle
     }
   }, [theme, buffer])
+
+  // Keep the textarea instance stable and only reset content when switching buffers.
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea || !buffer) {
+      activeBufferIdRef.current = null
+      return
+    }
+
+    if (activeBufferIdRef.current !== buffer.id) {
+      textarea.setText(buffer.content)
+      const maxOffset = textarea.plainText.length
+      textarea.cursorOffset = Math.max(0, Math.min(maxOffset, buffer.cursorPosition.offset))
+      activeBufferIdRef.current = buffer.id
+    }
+  }, [buffer])
 
   const syncBufferState = useCallback(() => {
     if (!buffer || !textareaRef.current) return
@@ -425,6 +445,10 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
     [closeContextMenu, contextMenu, copySelection, cutSelection, pasteFromClipboard, syncBufferState]
   )
 
+  const clearHighlights = useCallback(() => {
+    textareaRef.current?.clearAllHighlights()
+  }, [])
+
   // Handle highlight responses from Tree-sitter
   const applyHighlights = useCallback(
     (highlights: HighlightResponse[]) => {
@@ -454,32 +478,65 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
     [theme]
   )
 
-  // Setup Tree-sitter buffer when buffer changes
+  // Setup Tree-sitter session for the active buffer.
   useEffect(() => {
-    if (!treeSitterReady || !buffer || !buffer.filePath) return
+    const ts = getTreeSitter()
 
-    const filetype = getFiletype(buffer.filePath)
-    if (!filetype) {
-      // No parser available for this file type
+    if (!treeSitterReady || !buffer || !buffer.filePath) {
+      const previousBufferId = treeSitterBufferIdRef.current
+      treeSitterBufferIdRef.current = null
+      treeSitterHasParserRef.current = false
+      treeSitterLastContentRef.current = ""
+      versionRef.current = 0
+      clearHighlights()
+
+      if (previousBufferId !== null) {
+        ts.removeBuffer(previousBufferId).catch(() => {
+          // Ignore cleanup errors
+        })
+      }
       return
     }
 
-    const ts = getTreeSitter()
+    clearHighlights()
+
+    const filetype = getFiletype(buffer.filePath)
+    if (!filetype) {
+      treeSitterBufferIdRef.current = null
+      treeSitterHasParserRef.current = false
+      treeSitterLastContentRef.current = ""
+      versionRef.current = 0
+      return
+    }
+
     const numericId = getNumericBufferId(buffer.id)
-    versionRef.current = 0
+    treeSitterBufferIdRef.current = numericId
+    treeSitterHasParserRef.current = false
+    treeSitterLastContentRef.current = buffer.content
+    versionRef.current = 1
+    let disposed = false
 
-    // Create buffer in Tree-sitter
-    ts.createBuffer(numericId, buffer.content, filetype, versionRef.current).catch(err => {
-      console.error("Failed to create Tree-sitter buffer:", err)
-    })
+    ts.createBuffer(numericId, buffer.content, filetype, versionRef.current)
+      .then(hasParser => {
+        if (disposed || treeSitterBufferIdRef.current !== numericId) {
+          return
+        }
 
-    // Listen for highlight responses
+        treeSitterHasParserRef.current = hasParser
+        if (!hasParser) {
+          clearHighlights()
+        }
+      })
+      .catch(err => {
+        console.error("Failed to create Tree-sitter buffer:", err)
+      })
+
     const handleHighlights = (
       bufferId: number,
       _version: number,
       highlights: HighlightResponse[]
     ) => {
-      if (bufferId === numericId) {
+      if (!disposed && bufferId === numericId) {
         applyHighlights(highlights)
       }
     }
@@ -487,13 +544,44 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
     ts.on("highlights:response", handleHighlights)
 
     return () => {
+      disposed = true
       ts.off("highlights:response", handleHighlights)
-      // Remove buffer when component unmounts or buffer changes
+
+      if (treeSitterBufferIdRef.current === numericId) {
+        treeSitterBufferIdRef.current = null
+        treeSitterHasParserRef.current = false
+      }
+
       ts.removeBuffer(numericId).catch(() => {
-        // Ignore errors on cleanup
+        // Ignore cleanup errors
       })
     }
-  }, [treeSitterReady, buffer?.id, buffer?.filePath, buffer?.content, applyHighlights])
+  }, [treeSitterReady, buffer?.id, buffer?.filePath, applyHighlights, clearHighlights])
+
+  // Reparse active Tree-sitter buffer on content changes.
+  useEffect(() => {
+    if (!treeSitterReady || !buffer) {
+      return
+    }
+
+    const numericId = treeSitterBufferIdRef.current
+    if (numericId === null || !treeSitterHasParserRef.current) {
+      return
+    }
+
+    if (treeSitterLastContentRef.current === buffer.content) {
+      return
+    }
+
+    treeSitterLastContentRef.current = buffer.content
+    versionRef.current += 1
+
+    getTreeSitter()
+      .resetBuffer(numericId, versionRef.current, buffer.content)
+      .catch(error => {
+        console.error("Failed to refresh Tree-sitter highlights:", error)
+      })
+  }, [treeSitterReady, buffer?.id, buffer?.content])
 
   if (!buffer) {
     return (
@@ -522,30 +610,33 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
     )
   }
 
-  // TODO: Line numbers disabled due to OpenTUI bug
-  // See: https://github.com/sst/opentui/issues/432
-  // Using <line-number> wrapper causes: "Cannot remove target directly. Use clearTarget() instead."
-
   return (
     <box width={width} height={height} flexDirection="row" onMouseDown={handleEditorMouseDown}>
-      <textarea
-        ref={textareaRef}
-        key={buffer.id}
+      <line-number
         flexGrow={1}
-        height={height}
-        initialValue={buffer.content}
-        focused={focused}
-        backgroundColor={colors.background}
-        textColor={colors.foreground}
-        cursorColor={colors.primary}
-        selectionBg={colors.selection}
-        wrapMode="none"
-        syntaxStyle={getSyntaxStyle(theme)}
-        onContentChange={syncBufferState}
-        onCursorChange={syncBufferState}
-        onKeyDown={handleEditorKeyDown}
-        onMouseDown={handleEditorMouseDown}
-      />
+        fg={colors.comment}
+        bg={colors.background}
+        minWidth={4}
+        paddingRight={1}
+      >
+        <textarea
+          ref={textareaRef}
+          flexGrow={1}
+          height={height}
+          initialValue={buffer.content}
+          focused={focused}
+          backgroundColor={colors.background}
+          textColor={colors.foreground}
+          cursorColor={colors.primary}
+          selectionBg={colors.selection}
+          wrapMode="none"
+          syntaxStyle={getSyntaxStyle(theme)}
+          onContentChange={syncBufferState}
+          onCursorChange={syncBufferState}
+          onKeyDown={handleEditorKeyDown}
+          onMouseDown={handleEditorMouseDown}
+        />
+      </line-number>
 
       {contextMenu && (
         <ContextMenu
