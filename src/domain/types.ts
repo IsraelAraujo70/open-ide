@@ -222,6 +222,9 @@ export interface AppState {
   themePicker: {
     isOpen: boolean
   }
+  keybindingsHelp: {
+    isOpen: boolean
+  }
   terminals: Map<string, TerminalState>
   diagnostics: Map<string, Diagnostic[]> // bufferId -> diagnostics
 }
@@ -303,3 +306,7 @@ export type AppAction =
   // Theme Picker
   | { type: "OPEN_THEME_PICKER" }
   | { type: "CLOSE_THEME_PICKER" }
+
+  // Keybindings Help
+  | { type: "OPEN_KEYBINDINGS_HELP" }
+  | { type: "CLOSE_KEYBINDINGS_HELP" }

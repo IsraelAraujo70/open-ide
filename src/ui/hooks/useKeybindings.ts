@@ -21,21 +21,18 @@ const defaultKeybindings: KeybindingConfig[] = [
   // File operations
   { key: "s", ctrl: true, command: "file.save" },
   { key: "n", ctrl: true, command: "file.new" },
+  { key: "p", ctrl: true, command: "filePicker.open" },
   { key: "o", ctrl: true, command: "filePicker.open" },
   { key: "o", ctrl: true, shift: true, command: "project.open" },
   { key: "w", ctrl: true, command: "tab.close" },
 
   // Navigation
-  { key: "p", ctrl: true, command: "palette.open" },
   { key: "p", ctrl: true, shift: true, command: "palette.open" },
   { key: "tab", ctrl: true, command: "tab.next" },
   { key: "tab", ctrl: true, shift: true, command: "tab.prev" },
   { key: "b", ctrl: true, command: "explorer.toggle" },
 
   // Edit
-  { key: "c", ctrl: true, command: "clipboard.copy" },
-  { key: "v", ctrl: true, command: "clipboard.paste" },
-  { key: "x", ctrl: true, command: "clipboard.cut" },
   { key: "a", ctrl: true, command: "edit.selectAll" },
 
   // Theme
@@ -93,6 +90,10 @@ export function useKeybindings() {
         commandRegistry.execute("themePicker.close")
         return
       }
+      if (state.keybindingsHelp.isOpen) {
+        commandRegistry.execute("keybindings.close")
+        return
+      }
 
       if (state.focusTarget === "editor" && state.editorMode === "insert") {
         event.preventDefault?.()
@@ -107,7 +108,11 @@ export function useKeybindings() {
     }
 
     const hasModalOpen =
-      state.commandLine.isOpen || state.palette.isOpen || state.filePicker.isOpen || state.themePicker.isOpen
+      state.commandLine.isOpen ||
+      state.palette.isOpen ||
+      state.filePicker.isOpen ||
+      state.themePicker.isOpen ||
+      state.keybindingsHelp.isOpen
 
     // Let active modal widgets handle their own key events.
     if (hasModalOpen) {

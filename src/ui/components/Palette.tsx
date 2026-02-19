@@ -1,5 +1,5 @@
 /**
- * Palette Component - Command palette overlay (Ctrl+P)
+ * Palette Component - Command palette overlay (Ctrl+Shift+P)
  */
 
 import type { Theme, PaletteItem, Command } from "../../domain/types.ts"

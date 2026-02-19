@@ -101,6 +101,9 @@ class CommandRegistry {
       ex: "focus.explorer",
       explore: "focus.explorer",
       tree: "explorer.toggle",
+      keys: "keybindings.open",
+      keymaps: "keybindings.open",
+      keybindings: "keybindings.open",
       files: "filePicker.open",
       find: "filePicker.open",
       fzf: "filePicker.open",
@@ -472,6 +475,26 @@ commandRegistry.register({
   category: "UI",
   execute: () => {
     store.dispatch({ type: "CLOSE_THEME_PICKER" })
+  },
+})
+
+// Keybindings Help
+commandRegistry.register({
+  id: "keybindings.open",
+  name: "Show Keybindings",
+  category: "Help",
+  description: "Open keyboard shortcuts reference",
+  execute: () => {
+    store.dispatch({ type: "OPEN_KEYBINDINGS_HELP" })
+  },
+})
+
+commandRegistry.register({
+  id: "keybindings.close",
+  name: "Close Keybindings",
+  category: "Help",
+  execute: () => {
+    store.dispatch({ type: "CLOSE_KEYBINDINGS_HELP" })
   },
 })
 

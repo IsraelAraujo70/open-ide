@@ -26,9 +26,7 @@ export function StatusBar({ theme, width, buffer, focusTarget, editorMode }: Sta
   const mode = getModeLabel(focusTarget, editorMode)
   const modeColor = getModeColor(theme, focusTarget, editorMode)
 
-  const hintText = getHintText(width)
-  const rightBase = cursorInfo ? `${language} | ${cursorInfo}` : language
-  const rightContent = hintText ? `${rightBase} | ${hintText} ` : `${rightBase} `
+  const rightContent = cursorInfo ? `${language} | ${cursorInfo} ` : `${language} `
 
   const modeTag = ` ${mode} `
   const leftMain = ` ${fileName}${modified}`
@@ -88,20 +86,4 @@ function getModeColor(theme: Theme, focus: FocusTarget, editorMode: EditorMode):
     default:
       return colors.primary
   }
-}
-
-function getHintText(width: number): string {
-  if (width >= 120) {
-    return "Esc NORMAL | Insert/Enter INSERT | Ctrl+B file tree | :w :q"
-  }
-
-  if (width >= 90) {
-    return "Esc/NORMAL | Insert/INSERT | Ctrl+B | :w :q"
-  }
-
-  if (width >= 70) {
-    return "Esc | Insert | :w :q"
-  }
-
-  return ""
 }

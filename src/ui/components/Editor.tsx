@@ -16,6 +16,7 @@ import type { BufferState, CursorPosition, Selection, Theme } from "../../domain
 import { getTreeSitter, initTreeSitter, getFiletype } from "../../shared/index.ts"
 import { getSyntaxStyle } from "../../shared/syntaxStyle.ts"
 import { store } from "../../application/store.ts"
+import { clipboard } from "../../adapters/index.ts"
 
 // Re-define the highlight types locally to avoid module resolution issues
 interface HighlightRange {
@@ -182,6 +183,61 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       const ctrlOrMeta = !!event.ctrl || !!event.meta
       const hasHardModifier = !!event.ctrl || !!event.meta || !!event.option || !!event.super
 
+      if (ctrlOrMeta && !event.option && !event.super) {
+        if (keyName === "c" && !event.shift) {
+          event.preventDefault?.()
+          const selection = textarea.getSelection()
+          if (!selection || selection.start === selection.end) return
+
+          const start = Math.min(selection.start, selection.end)
+          const end = Math.max(selection.start, selection.end)
+          const selectedText = textarea.getTextRange(start, end)
+          void clipboard.writeText(selectedText)
+          return
+        }
+
+        if (keyName === "x" && !event.shift) {
+          event.preventDefault?.()
+          const selection = textarea.getSelection()
+          if (!selection || selection.start === selection.end) return
+
+          const start = Math.min(selection.start, selection.end)
+          const end = Math.max(selection.start, selection.end)
+          const selectedText = textarea.getTextRange(start, end)
+          const startPos = textarea.editBuffer.offsetToPosition(start)
+          const endPos = textarea.editBuffer.offsetToPosition(end)
+          if (!startPos || !endPos) return
+
+          textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
+          syncBufferState()
+          void clipboard.writeText(selectedText)
+          return
+        }
+
+        if (keyName === "v" && !event.shift) {
+          event.preventDefault?.()
+          void (async () => {
+            const text = await clipboard.readText()
+            if (!text) return
+
+            const selection = textarea.getSelection()
+            if (selection && selection.start !== selection.end) {
+              const start = Math.min(selection.start, selection.end)
+              const end = Math.max(selection.start, selection.end)
+              const startPos = textarea.editBuffer.offsetToPosition(start)
+              const endPos = textarea.editBuffer.offsetToPosition(end)
+              if (startPos && endPos) {
+                textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
+              }
+            }
+
+            textarea.insertText(text)
+            syncBufferState()
+          })()
+          return
+        }
+      }
+
       if (ctrlOrMeta && keyName === "z" && !event.option && !event.super) {
         event.preventDefault?.()
         if (event.shift) {
@@ -343,7 +399,8 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
           <text fg={colors.comment}> </text>
           <text fg={colors.comment}>Press Ctrl+O to open a file</text>
           <text fg={colors.comment}>Press Ctrl+N to create a new file</text>
-          <text fg={colors.comment}>Press Ctrl+P for command palette</text>
+          <text fg={colors.comment}>Press Ctrl+P to search files</text>
+          <text fg={colors.comment}>Press Ctrl+Shift+P for command palette</text>
           <text fg={colors.comment}>Type :w to save and :q to quit</text>
           <text fg={colors.comment}>Esc: NORMAL | Insert/Enter: INSERT</text>
           <text fg={colors.comment}>Tab/Shift+Tab: indent | Ctrl+Z / Ctrl+Shift+Z</text>

@@ -65,6 +65,9 @@ export const createInitialState = (): AppState => ({
   themePicker: {
     isOpen: false,
   },
+  keybindingsHelp: {
+    isOpen: false,
+  },
   terminals: new Map(),
   diagnostics: new Map(),
 })
@@ -632,6 +635,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         themePicker: { isOpen: false },
+        focusTarget: "editor",
+      }
+    }
+
+    case "OPEN_KEYBINDINGS_HELP": {
+      return {
+        ...state,
+        keybindingsHelp: { isOpen: true },
+        focusTarget: "palette",
+      }
+    }
+
+    case "CLOSE_KEYBINDINGS_HELP": {
+      return {
+        ...state,
+        keybindingsHelp: { isOpen: false },
         focusTarget: "editor",
       }
     }

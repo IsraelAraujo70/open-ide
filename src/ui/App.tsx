@@ -14,6 +14,7 @@ import { CommandLine } from "./components/CommandLine"
 import { Palette } from "./components/Palette"
 import { FilePicker } from "./components/FilePicker"
 import { ThemePicker } from "./components/ThemePicker"
+import { KeybindingsHelp } from "./components/KeybindingsHelp"
 import { useKeybindings } from "./hooks/useKeybindings.ts"
 import { commandRegistry, parseAndExecuteCommand } from "../application/commands.ts"
 import { fileSystem } from "../adapters/index.ts"
@@ -172,8 +173,12 @@ export function App() {
       {state.filePicker.isOpen && (
         <FilePicker
           theme={state.theme}
-          width={Math.min(60, width - 4)}
-          height={Math.min(20, height - 4)}
+          width={
+            state.filePicker.mode === "file" ? Math.min(120, width - 2) : Math.min(60, width - 4)
+          }
+          height={
+            state.filePicker.mode === "file" ? Math.min(28, height - 2) : Math.min(20, height - 4)
+          }
           initialPath={state.workspace.rootPath || process.cwd()}
           mode={state.filePicker.mode}
           onSelect={async (path: string) => {
@@ -208,6 +213,16 @@ export function App() {
             dispatch({ type: "SET_THEME", themeId })
           }}
           onCancel={() => dispatch({ type: "CLOSE_THEME_PICKER" })}
+        />
+      )}
+
+      {/* Keybindings Help Overlay */}
+      {state.keybindingsHelp.isOpen && (
+        <KeybindingsHelp
+          theme={state.theme}
+          width={Math.min(76, width - 4)}
+          height={Math.min(20, height - 4)}
+          onClose={() => dispatch({ type: "CLOSE_KEYBINDINGS_HELP" })}
         />
       )}
     </box>
