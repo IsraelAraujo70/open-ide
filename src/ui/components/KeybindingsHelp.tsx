@@ -19,7 +19,7 @@ interface ShortcutItem {
 
 const shortcutItems: ShortcutItem[] = [
   { keys: "Ctrl+P", action: "Search project files" },
-  { keys: "Ctrl+Shift+P", action: "Open command palette" },
+  { keys: "Ctrl+Shift+K", action: "Open command palette" },
   { keys: "Ctrl+B", action: "Toggle file tree" },
   { keys: "Ctrl+S", action: "Save current file" },
   { keys: "Ctrl+N", action: "New file" },
@@ -90,12 +90,32 @@ export function KeybindingsHelp({ theme, width, height, onClose }: KeybindingsHe
 
 function ShortcutRow({ item, theme }: { item: ShortcutItem; theme: Theme }) {
   const { colors } = theme
-  const keys = item.keys.padEnd(20, " ")
+  const keyColumnWidth = 21
 
   return (
-    <box height={1} paddingLeft={1} paddingRight={1}>
-      <text fg={colors.primary}>{keys}</text>
-      <text fg={colors.foreground}>{item.action}</text>
+    <box
+      height={1}
+      paddingLeft={1}
+      paddingRight={1}
+      backgroundColor={colors.background}
+      flexDirection="row"
+    >
+      <box width={keyColumnWidth} backgroundColor={colors.background}>
+        <text fg={colors.primary} bg={colors.background}>
+          {truncate(item.keys, keyColumnWidth - 1)}
+        </text>
+      </box>
+      <box flexGrow={1} backgroundColor={colors.background}>
+        <text fg={colors.foreground} bg={colors.background}>
+          {item.action}
+        </text>
+      </box>
     </box>
   )
+}
+
+function truncate(input: string, maxLen: number): string {
+  if (maxLen <= 1) return ""
+  if (input.length <= maxLen) return input
+  return `${input.slice(0, Math.max(0, maxLen - 1))}…`
 }

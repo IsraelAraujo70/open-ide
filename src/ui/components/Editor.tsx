@@ -10,13 +10,16 @@
  * Syntax highlighting is provided by Tree-sitter via OpenTUI's TreeSitterClient.
  */
 
-import { useRef, useEffect, useState, useCallback } from "react"
-import type { KeyEvent, TextareaRenderable } from "@opentui/core"
+import { useRef, useEffect, useState, useCallback, useMemo } from "react"
+import { useTerminalDimensions } from "@opentui/react"
+import type { KeyEvent, MouseEvent as OtuMouseEvent, TextareaRenderable } from "@opentui/core"
 import type { BufferState, CursorPosition, Selection, Theme } from "../../domain/types.ts"
 import { getTreeSitter, initTreeSitter, getFiletype } from "../../shared/index.ts"
 import { getSyntaxStyle } from "../../shared/syntaxStyle.ts"
 import { store } from "../../application/store.ts"
 import { clipboard } from "../../adapters/index.ts"
+import { commandRegistry } from "../../application/commands.ts"
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu.tsx"
 
 // Re-define the highlight types locally to avoid module resolution issues
 interface HighlightRange {
@@ -101,8 +104,10 @@ function isSameSelection(a: Selection | null, b: Selection | null): boolean {
 
 export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
   const { colors } = theme
+  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions()
   const textareaRef = useRef<TextareaRenderable | null>(null)
   const [treeSitterReady, setTreeSitterReady] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const versionRef = useRef(0)
 
   // Initialize Tree-sitter on mount
@@ -171,8 +176,144 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
     }
   }, [buffer])
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  const copySelection = useCallback(async () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const selection = textarea.getSelection()
+    if (!selection || selection.start === selection.end) return
+
+    const start = Math.min(selection.start, selection.end)
+    const end = Math.max(selection.start, selection.end)
+    const selectedText = textarea.getTextRange(start, end)
+    await clipboard.writeText(selectedText)
+  }, [])
+
+  const cutSelection = useCallback(async () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const selection = textarea.getSelection()
+    if (!selection || selection.start === selection.end) return
+
+    const start = Math.min(selection.start, selection.end)
+    const end = Math.max(selection.start, selection.end)
+    const selectedText = textarea.getTextRange(start, end)
+    const startPos = textarea.editBuffer.offsetToPosition(start)
+    const endPos = textarea.editBuffer.offsetToPosition(end)
+    if (!startPos || !endPos) return
+
+    textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
+    syncBufferState()
+    await clipboard.writeText(selectedText)
+  }, [syncBufferState])
+
+  const pasteFromClipboard = useCallback(async () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const text = await clipboard.readText()
+    if (!text) return
+
+    const selection = textarea.getSelection()
+    if (selection && selection.start !== selection.end) {
+      const start = Math.min(selection.start, selection.end)
+      const end = Math.max(selection.start, selection.end)
+      const startPos = textarea.editBuffer.offsetToPosition(start)
+      const endPos = textarea.editBuffer.offsetToPosition(end)
+      if (startPos && endPos) {
+        textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
+      }
+    }
+
+    textarea.insertText(text)
+    syncBufferState()
+  }, [syncBufferState])
+
+  const contextMenuItems = useMemo<ContextMenuItem[]>(
+    () => [
+      {
+        id: "editor-copy",
+        label: "Copy",
+        shortcut: "Ctrl+C",
+        onSelect: copySelection,
+      },
+      {
+        id: "editor-cut",
+        label: "Cut",
+        shortcut: "Ctrl+X",
+        onSelect: cutSelection,
+      },
+      {
+        id: "editor-paste",
+        label: "Paste",
+        shortcut: "Ctrl+V",
+        onSelect: pasteFromClipboard,
+      },
+      {
+        id: "editor-sep-1",
+        type: "separator",
+      },
+      {
+        id: "editor-search-files",
+        label: "Search Files",
+        shortcut: "Ctrl+P",
+        onSelect: () => commandRegistry.execute("filePicker.open"),
+      },
+      {
+        id: "editor-command-palette",
+        label: "Command Palette",
+        shortcut: "Ctrl+Shift+K",
+        onSelect: () => commandRegistry.execute("palette.open"),
+      },
+      {
+        id: "editor-keybindings",
+        label: "Show Keybindings",
+        onSelect: () => commandRegistry.execute("keybindings.open"),
+      },
+      {
+        id: "editor-sep-2",
+        type: "separator",
+      },
+      {
+        id: "editor-tree-toggle",
+        label: "Toggle File Tree",
+        shortcut: "Ctrl+B",
+        onSelect: () => commandRegistry.execute("explorer.toggle"),
+      },
+    ],
+    [copySelection, cutSelection, pasteFromClipboard]
+  )
+
+  const handleEditorMouseDown = useCallback(
+    (event: OtuMouseEvent) => {
+      if (event.button === 2) {
+        event.preventDefault?.()
+        event.stopPropagation?.()
+        setContextMenu({
+          x: event.x,
+          y: event.y,
+        })
+        return
+      }
+
+      if (contextMenu) {
+        closeContextMenu()
+      }
+    },
+    [closeContextMenu, contextMenu]
+  )
+
   const handleEditorKeyDown = useCallback(
     (event: KeyEvent) => {
+      if (contextMenu) {
+        closeContextMenu()
+      }
+
       const state = store.getState()
       if (state.focusTarget !== "editor") return
 
@@ -186,54 +327,25 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
       if (ctrlOrMeta && !event.option && !event.super) {
         if (keyName === "c" && !event.shift) {
           event.preventDefault?.()
-          const selection = textarea.getSelection()
-          if (!selection || selection.start === selection.end) return
-
-          const start = Math.min(selection.start, selection.end)
-          const end = Math.max(selection.start, selection.end)
-          const selectedText = textarea.getTextRange(start, end)
-          void clipboard.writeText(selectedText)
+          void copySelection()
           return
         }
 
         if (keyName === "x" && !event.shift) {
           event.preventDefault?.()
-          const selection = textarea.getSelection()
-          if (!selection || selection.start === selection.end) return
-
-          const start = Math.min(selection.start, selection.end)
-          const end = Math.max(selection.start, selection.end)
-          const selectedText = textarea.getTextRange(start, end)
-          const startPos = textarea.editBuffer.offsetToPosition(start)
-          const endPos = textarea.editBuffer.offsetToPosition(end)
-          if (!startPos || !endPos) return
-
-          textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
-          syncBufferState()
-          void clipboard.writeText(selectedText)
+          void cutSelection()
           return
         }
 
         if (keyName === "v" && !event.shift) {
           event.preventDefault?.()
-          void (async () => {
-            const text = await clipboard.readText()
-            if (!text) return
+          void pasteFromClipboard()
+          return
+        }
 
-            const selection = textarea.getSelection()
-            if (selection && selection.start !== selection.end) {
-              const start = Math.min(selection.start, selection.end)
-              const end = Math.max(selection.start, selection.end)
-              const startPos = textarea.editBuffer.offsetToPosition(start)
-              const endPos = textarea.editBuffer.offsetToPosition(end)
-              if (startPos && endPos) {
-                textarea.deleteRange(startPos.row, startPos.col, endPos.row, endPos.col)
-              }
-            }
-
-            textarea.insertText(text)
-            syncBufferState()
-          })()
+        if (keyName === "insert" && event.shift) {
+          event.preventDefault?.()
+          void pasteFromClipboard()
           return
         }
       }
@@ -310,7 +422,7 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
         return
       }
     },
-    [syncBufferState]
+    [closeContextMenu, contextMenu, copySelection, cutSelection, pasteFromClipboard, syncBufferState]
   )
 
   // Handle highlight responses from Tree-sitter
@@ -400,10 +512,11 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
           <text fg={colors.comment}>Press Ctrl+O to open a file</text>
           <text fg={colors.comment}>Press Ctrl+N to create a new file</text>
           <text fg={colors.comment}>Press Ctrl+P to search files</text>
-          <text fg={colors.comment}>Press Ctrl+Shift+P for command palette</text>
+          <text fg={colors.comment}>Press Ctrl+Shift+K for command palette</text>
           <text fg={colors.comment}>Type :w to save and :q to quit</text>
           <text fg={colors.comment}>Esc: NORMAL | Insert/Enter: INSERT</text>
           <text fg={colors.comment}>Tab/Shift+Tab: indent | Ctrl+Z / Ctrl+Shift+Z</text>
+          <text fg={colors.comment}>Right click: context menu</text>
         </box>
       </box>
     )
@@ -414,7 +527,7 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
   // Using <line-number> wrapper causes: "Cannot remove target directly. Use clearTarget() instead."
 
   return (
-    <box width={width} height={height} flexDirection="row">
+    <box width={width} height={height} flexDirection="row" onMouseDown={handleEditorMouseDown}>
       <textarea
         ref={textareaRef}
         key={buffer.id}
@@ -431,7 +544,20 @@ export function Editor({ buffer, theme, width, height, focused }: EditorProps) {
         onContentChange={syncBufferState}
         onCursorChange={syncBufferState}
         onKeyDown={handleEditorKeyDown}
+        onMouseDown={handleEditorMouseDown}
       />
+
+      {contextMenu && (
+        <ContextMenu
+          theme={theme}
+          items={contextMenuItems}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          viewportWidth={terminalWidth}
+          viewportHeight={terminalHeight}
+          onClose={closeContextMenu}
+        />
+      )}
     </box>
   )
 }

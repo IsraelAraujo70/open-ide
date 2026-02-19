@@ -83,7 +83,7 @@ export function Palette({ query, theme, width, height, onClose, onQueryChange }:
       zIndex={200}
     >
       {/* Search input */}
-      <box height={1} paddingLeft={1} paddingRight={1}>
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row">
         <text fg={colors.primary}>{">"}</text>
         <input
           flexGrow={1}

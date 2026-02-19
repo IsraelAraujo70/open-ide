@@ -27,7 +27,7 @@ const defaultKeybindings: KeybindingConfig[] = [
   { key: "w", ctrl: true, command: "tab.close" },
 
   // Navigation
-  { key: "p", ctrl: true, shift: true, command: "palette.open" },
+  { key: "k", ctrl: true, shift: true, command: "palette.open" },
   { key: "tab", ctrl: true, command: "tab.next" },
   { key: "tab", ctrl: true, shift: true, command: "tab.prev" },
   { key: "b", ctrl: true, command: "explorer.toggle" },

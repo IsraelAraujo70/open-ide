@@ -6,29 +6,55 @@
 import type { ClipboardPort } from "../ports/index.ts"
 
 export class TerminalClipboardAdapter implements ClipboardPort {
+  private async tryReadCommand(command: string[]): Promise<string | null> {
+    try {
+      const proc = Bun.spawn(command)
+      const text = await new Response(proc.stdout).text()
+      const exitCode = await proc.exited
+      if (exitCode !== 0) return null
+      return text
+    } catch {
+      return null
+    }
+  }
+
+  private async tryWriteCommand(command: string[], text: string): Promise<boolean> {
+    try {
+      const proc = Bun.spawn(command, {
+        stdin: new Blob([text]),
+      })
+      const exitCode = await proc.exited
+      return exitCode === 0
+    } catch {
+      return false
+    }
+  }
+
   async readText(): Promise<string> {
-    // Try xclip/xsel on Linux, pbpaste on macOS
     const platform = process.platform
 
-    try {
-      if (platform === "darwin") {
-        const proc = Bun.spawn(["pbpaste"])
-        const text = await new Response(proc.stdout).text()
-        return text
-      } else if (platform === "linux") {
-        // Try xclip first, then xsel
-        try {
-          const proc = Bun.spawn(["xclip", "-selection", "clipboard", "-o"])
-          const text = await new Response(proc.stdout).text()
-          return text
-        } catch {
-          const proc = Bun.spawn(["xsel", "--clipboard", "--output"])
-          const text = await new Response(proc.stdout).text()
-          return text
+    if (platform === "darwin") {
+      return (await this.tryReadCommand(["pbpaste"])) ?? ""
+    }
+
+    if (platform === "linux") {
+      const isWayland = !!process.env.WAYLAND_DISPLAY
+      if (isWayland) {
+        const waylandText = await this.tryReadCommand(["wl-paste"])
+        if (waylandText !== null) {
+          return waylandText
         }
       }
-    } catch {
-      // Clipboard not available
+
+      const xclipText = await this.tryReadCommand(["xclip", "-selection", "clipboard", "-o"])
+      if (xclipText !== null) {
+        return xclipText
+      }
+
+      const xselText = await this.tryReadCommand(["xsel", "--clipboard", "--output"])
+      if (xselText !== null) {
+        return xselText
+      }
     }
 
     return ""
@@ -42,27 +68,22 @@ export class TerminalClipboardAdapter implements ClipboardPort {
     process.stdout.write(`\x1b]52;c;${base64}\x07`)
 
     // Also try system clipboard as fallback
-    try {
-      if (platform === "darwin") {
-        const proc = Bun.spawn(["pbcopy"], {
-          stdin: new Blob([text]),
-        })
-        await proc.exited
-      } else if (platform === "linux") {
-        try {
-          const proc = Bun.spawn(["xclip", "-selection", "clipboard"], {
-            stdin: new Blob([text]),
-          })
-          await proc.exited
-        } catch {
-          const proc = Bun.spawn(["xsel", "--clipboard", "--input"], {
-            stdin: new Blob([text]),
-          })
-          await proc.exited
-        }
+    if (platform === "darwin") {
+      await this.tryWriteCommand(["pbcopy"], text)
+      return
+    }
+
+    if (platform === "linux") {
+      const isWayland = !!process.env.WAYLAND_DISPLAY
+      if (isWayland) {
+        const wroteWayland = await this.tryWriteCommand(["wl-copy"], text)
+        if (wroteWayland) return
       }
-    } catch {
-      // System clipboard not available, OSC 52 was already sent
+
+      const wroteXclip = await this.tryWriteCommand(["xclip", "-selection", "clipboard"], text)
+      if (wroteXclip) return
+
+      await this.tryWriteCommand(["xsel", "--clipboard", "--input"], text)
     }
   }
 }
