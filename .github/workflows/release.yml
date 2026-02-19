@@ -123,6 +123,8 @@ jobs:
             exit 1
           fi
 
+          git add package.json
+          git commit -m "chore(release): v$NEW_VERSION [skip ci]"
           git tag "v$NEW_VERSION"
 
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
