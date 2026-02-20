@@ -225,6 +225,11 @@ export interface LspClient {
   didSave(uri: string, text?: string): void
 
   /**
+   * Notify server that workspace/client configuration changed
+   */
+  didChangeConfiguration(settings: Record<string, unknown>): void
+
+  /**
    * Get completions at position
    */
   completion(uri: string, position: CursorPosition): Promise<CompletionItem[]>
@@ -313,12 +318,17 @@ export const defaultSettings: Settings = {
     },
     python: {
       language: "python",
-      command: "pylsp",
-      args: [],
+      command: "ruff",
+      args: ["server"],
     },
     go: {
       language: "go",
       command: "gopls",
+      args: [],
+    },
+    rust: {
+      language: "rust",
+      command: "rust-analyzer",
       args: [],
     },
   },

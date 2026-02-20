@@ -10,6 +10,61 @@ import { homedir } from "os"
 const CONFIG_DIR = join(homedir(), ".config", "open-ide")
 const SETTINGS_FILE = join(CONFIG_DIR, "settings.json")
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function normalizeLspServerConfig(
+  key: string,
+  value: unknown,
+  fallback?: Settings["lspServers"][string]
+): Settings["lspServers"][string] | null {
+  if (!isRecord(value)) {
+    return fallback ? { ...fallback } : null
+  }
+
+  const language = typeof value.language === "string" ? value.language.trim() : fallback?.language ?? key
+  const command = typeof value.command === "string" ? value.command.trim() : fallback?.command ?? ""
+  const args = Array.isArray(value.args)
+    ? value.args.filter((arg): arg is string => typeof arg === "string")
+    : fallback?.args ?? []
+  const rootUri = typeof value.rootUri === "string" ? value.rootUri : fallback?.rootUri
+
+  if (!language || !command) {
+    return null
+  }
+
+  return {
+    language,
+    command,
+    args,
+    rootUri,
+  }
+}
+
+function mergeSettings(parsed: Partial<Settings>): Settings {
+  const mergedLspServers: Settings["lspServers"] = {}
+
+  for (const [key, config] of Object.entries(defaults.lspServers)) {
+    mergedLspServers[key] = { ...config }
+  }
+
+  if (isRecord(parsed.lspServers)) {
+    for (const [key, value] of Object.entries(parsed.lspServers)) {
+      const normalized = normalizeLspServerConfig(key, value, mergedLspServers[key])
+      if (normalized) {
+        mergedLspServers[key] = normalized
+      }
+    }
+  }
+
+  return {
+    ...defaults,
+    ...parsed,
+    lspServers: mergedLspServers,
+  }
+}
+
 export class JsonSettingsAdapter implements SettingsPort {
   private cache: Settings | null = null
 
@@ -19,15 +74,16 @@ export class JsonSettingsAdapter implements SettingsPort {
       if (await file.exists()) {
         const content = await file.text()
         const parsed = JSON.parse(content) as Partial<Settings>
-        // Merge with defaults to ensure all keys exist
-        this.cache = { ...defaults, ...parsed }
+        // Merge with defaults to ensure all keys exist.
+        // lspServers needs a deep-ish merge so newly added defaults are preserved.
+        this.cache = mergeSettings(parsed)
         return this.cache
       }
     } catch {
       // File doesn't exist or is invalid
     }
 
-    this.cache = { ...defaults }
+    this.cache = mergeSettings({})
     return this.cache
   }
 

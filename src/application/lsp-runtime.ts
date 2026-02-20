@@ -8,7 +8,7 @@
  * - didClose when buffer is removed
  */
 
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import type { AppAction, AppState, BufferState, LspServerConfig } from "../domain/types.ts"
 import type { LspClient } from "../ports/index.ts"
 import { defaultSettings } from "../ports/index.ts"
@@ -40,7 +40,7 @@ class LspRuntime {
   private previousState: AppState = store.getState()
   private configs: Map<string, LspServerConfig> = new Map()
   private documents: Map<string, TrackedDocument> = new Map()
-  private uriToBufferId: Map<string, string> = new Map()
+  private uriToBufferIds: Map<string, Set<string>> = new Map()
   private changeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
   private initializingClients: Map<string, Promise<LspClient | null>> = new Map()
   private initializedLanguages: Set<string> = new Set()
@@ -109,7 +109,7 @@ class LspRuntime {
     await this.stopAllServers()
 
     this.documents.clear()
-    this.uriToBufferId.clear()
+    this.uriToBufferIds.clear()
     this.initializingClients.clear()
     this.initializedLanguages.clear()
     this.diagnosticsBoundLanguages.clear()
@@ -152,7 +152,7 @@ class LspRuntime {
     }
 
     this.documents.clear()
-    this.uriToBufferId.clear()
+    this.uriToBufferIds.clear()
 
     void this.stopAllServers().finally(() => {
       this.dispatchInternal({ type: "CLEAR_ALL_DIAGNOSTICS" })
@@ -220,7 +220,7 @@ class LspRuntime {
     }
 
     this.documents.set(buffer.id, document)
-    this.uriToBufferId.set(uri, buffer.id)
+    this.addUriBufferMapping(uri, buffer.id)
 
     const openPromise = this.ensureClient(serverLanguage, workspaceRoot)
       .then(client => {
@@ -233,6 +233,7 @@ class LspRuntime {
           return
         }
 
+        this.syncLanguageConfiguration(current.serverLanguage, client)
         client.didOpen(current.uri, current.languageId, current.version, current.content)
         current.opened = true
       })
@@ -256,7 +257,8 @@ class LspRuntime {
     }
 
     this.documents.delete(bufferId)
-    this.uriToBufferId.delete(tracked.uri)
+    this.removeUriBufferMapping(tracked.uri, bufferId)
+    this.syncLanguageConfiguration(tracked.serverLanguage)
 
     const closeTask = async () => {
       try {
@@ -367,48 +369,31 @@ class LspRuntime {
         return null
       }
 
-      let client = lsp.getClient(serverLanguage)
-      if (!client) {
-        client = await this.startServerWithFallback(serverLanguage, config)
-        if (!client) {
-          return null
-        }
+      const existingClient = lsp.getClient(serverLanguage)
+      if (existingClient && this.initializedLanguages.has(serverLanguage)) {
+        this.bindDiagnostics(serverLanguage, existingClient)
+        this.activeLanguages.add(serverLanguage)
+        this.syncLanguageConfiguration(serverLanguage, existingClient)
+        return existingClient
       }
 
-      if (!this.diagnosticsBoundLanguages.has(serverLanguage)) {
-        client.onDiagnostics((uri, diagnostics) => {
-          const bufferId = this.uriToBufferId.get(uri)
-          if (!bufferId) {
-            return
-          }
-
-          this.dispatchInternal({
-            type: "SET_BUFFER_DIAGNOSTICS",
-            bufferId,
-            diagnostics,
-          })
-        })
-        this.diagnosticsBoundLanguages.add(serverLanguage)
-      }
-
-      if (!this.initializedLanguages.has(serverLanguage)) {
+      if (existingClient) {
         try {
-          await client.initialize(pathToFileURL(workspaceRoot).toString())
-          this.initializedLanguages.add(serverLanguage)
-        } catch (error) {
-          console.error(`[LSP runtime] Failed to initialize server for ${serverLanguage}:`, error)
-          try {
-            await lsp.stopServer(serverLanguage)
-          } catch {
-            // Ignore stop errors after failed init.
-          }
-          this.diagnosticsBoundLanguages.delete(serverLanguage)
-          this.initializedLanguages.delete(serverLanguage)
-          return null
+          await lsp.stopServer(serverLanguage)
+        } catch {
+          // Ignore cleanup failures before trying fallback startup.
         }
+        this.diagnosticsBoundLanguages.delete(serverLanguage)
+        this.initializedLanguages.delete(serverLanguage)
+      }
+
+      const client = await this.startServerWithFallback(serverLanguage, config, workspaceRoot)
+      if (!client) {
+        return null
       }
 
       this.activeLanguages.add(serverLanguage)
+      this.syncLanguageConfiguration(serverLanguage, client)
       return client
     })()
 
@@ -422,32 +407,193 @@ class LspRuntime {
 
   private async startServerWithFallback(
     serverLanguage: string,
-    config: LspServerConfig
+    config: LspServerConfig,
+    workspaceRoot: string
   ): Promise<LspClient | null> {
-    try {
-      return await lsp.startServer(config)
-    } catch (error) {
-      if (serverLanguage !== "typescript" || config.command === "bunx") {
-        console.error(`[LSP runtime] Failed to start server for ${serverLanguage}:`, error)
-        return null
+    const attempts = [config, ...this.getServerFallbackConfigs(serverLanguage, config)]
+    const rootUri = pathToFileURL(workspaceRoot).toString()
+
+    for (const [index, attempt] of attempts.entries()) {
+      const isFallback = index > 0
+
+      if (isFallback) {
+        console.error(
+          `[LSP runtime] Trying fallback "${attempt.command}" for ${serverLanguage} language server startup`
+        )
       }
 
-      const fallbackConfig: LspServerConfig = {
+      let client: LspClient
+      try {
+        client = await lsp.startServer(attempt)
+      } catch (error) {
+        const kind = isFallback ? "fallback server startup" : "server startup"
+        console.error(
+          `[LSP runtime] Failed ${kind} for ${serverLanguage} using "${attempt.command}":`,
+          error
+        )
+        continue
+      }
+
+      this.bindDiagnostics(serverLanguage, client)
+
+      try {
+        await client.initialize(rootUri)
+        this.initializedLanguages.add(serverLanguage)
+        return client
+      } catch (error) {
+        console.error(
+          `[LSP runtime] Failed to initialize ${serverLanguage} using "${attempt.command}":`,
+          error
+        )
+        this.diagnosticsBoundLanguages.delete(serverLanguage)
+        this.initializedLanguages.delete(serverLanguage)
+
+        try {
+          await lsp.stopServer(serverLanguage)
+        } catch {
+          // Ignore stop errors after failed init.
+        }
+      }
+    }
+
+    return null
+  }
+
+  private bindDiagnostics(serverLanguage: string, client: LspClient): void {
+    if (this.diagnosticsBoundLanguages.has(serverLanguage)) {
+      return
+    }
+
+    client.onDiagnostics((uri, diagnostics) => {
+      const bufferIds = this.uriToBufferIds.get(uri)
+      if (!bufferIds || bufferIds.size === 0) {
+        return
+      }
+
+      for (const bufferId of bufferIds) {
+        this.dispatchInternal({
+          type: "SET_BUFFER_DIAGNOSTICS",
+          bufferId,
+          diagnostics,
+        })
+      }
+    })
+
+    this.diagnosticsBoundLanguages.add(serverLanguage)
+  }
+
+  private getServerFallbackConfigs(
+    serverLanguage: string,
+    config: LspServerConfig
+  ): LspServerConfig[] {
+    const fallbacks: LspServerConfig[] = []
+
+    if (serverLanguage === "typescript") {
+      fallbacks.push({
         language: config.language,
         command: "bunx",
         args: ["typescript-language-server", "--stdio"],
         rootUri: config.rootUri,
+      })
+    }
+
+    if (serverLanguage === "python") {
+      fallbacks.push(
+        {
+          language: config.language,
+          command: "ruff",
+          args: ["server"],
+          rootUri: config.rootUri,
+        },
+        {
+          language: config.language,
+          command: "ruff-lsp",
+          args: [],
+          rootUri: config.rootUri,
+        },
+        {
+          language: config.language,
+          command: "pylsp",
+          args: [],
+          rootUri: config.rootUri,
+        }
+      )
+    }
+
+    const seen = new Set<string>([this.buildFallbackKey(config)])
+    const uniqueFallbacks: LspServerConfig[] = []
+
+    for (const fallback of fallbacks) {
+      const key = this.buildFallbackKey(fallback)
+      if (seen.has(key)) {
+        continue
+      }
+      seen.add(key)
+      uniqueFallbacks.push(fallback)
+    }
+
+    return uniqueFallbacks
+  }
+
+  private buildFallbackKey(config: Pick<LspServerConfig, "command" | "args">): string {
+    return `${config.command}\u0000${config.args.join("\u0000")}`
+  }
+
+  private syncLanguageConfiguration(serverLanguage: string, providedClient?: LspClient): void {
+    if (serverLanguage !== "rust") {
+      return
+    }
+
+    const client = providedClient ?? lsp.getClient(serverLanguage)
+    if (!client || !client.isReady) {
+      return
+    }
+
+    const linkedProjects = this.getRustLinkedProjects()
+    client.didChangeConfiguration({
+      "rust-analyzer": {
+        linkedProjects,
+      },
+    })
+  }
+
+  private getRustLinkedProjects(): string[] {
+    const projects = new Set<string>()
+
+    for (const document of this.documents.values()) {
+      if (document.serverLanguage !== "rust") {
+        continue
       }
 
       try {
-        console.error(
-          `[LSP runtime] Falling back to bunx for ${serverLanguage} language server startup`
-        )
-        return await lsp.startServer(fallbackConfig)
-      } catch (fallbackError) {
-        console.error(`[LSP runtime] Failed to start fallback server for ${serverLanguage}:`, fallbackError)
-        return null
+        projects.add(fileURLToPath(document.uri))
+      } catch {
+        // Ignore malformed URIs.
       }
+    }
+
+    return Array.from(projects).sort()
+  }
+
+  private addUriBufferMapping(uri: string, bufferId: string): void {
+    const existing = this.uriToBufferIds.get(uri)
+    if (existing) {
+      existing.add(bufferId)
+      return
+    }
+
+    this.uriToBufferIds.set(uri, new Set([bufferId]))
+  }
+
+  private removeUriBufferMapping(uri: string, bufferId: string): void {
+    const existing = this.uriToBufferIds.get(uri)
+    if (!existing) {
+      return
+    }
+
+    existing.delete(bufferId)
+    if (existing.size === 0) {
+      this.uriToBufferIds.delete(uri)
     }
   }
 
